@@ -24,7 +24,6 @@ export interface XenolithSettingsFile {
 
 export const SETTINGS_FILE_NAME = "xenolith.json";
 export const BINDINGS_FILE_NAME = "wire-bindings.json";
-export const MCP_FILE_NAME = "mcp.json";
 export const AGENT_DIR_ENV = "XENOPI_DIR";
 export const XENOPI_AGENT_DIR_ENV = "XENOPI_CODING_AGENT_DIR";
 export const PI_AGENT_DIR_ENV = "PI_CODING_AGENT_DIR";
@@ -86,8 +85,4 @@ export function resolveXenolithSettings(
 
 export function bindingsPath(agentDir: string): string {
   return join(agentDir, BINDINGS_FILE_NAME);
-}
-
-export function mcpConfigPath(agentDir: string): string {
-  return join(agentDir, MCP_FILE_NAME);
 }

@@ -1,6 +1,6 @@
 {
   "name": "xenopi",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "XenoPi local coding agent on the Xenolith wire service",
   "piConfig": {
     "name": "xenopi",
@@ -28,30 +28,26 @@
     "./branding": {
       "types": "./dist/src/extensions/branding.d.ts",
       "import": "./dist/src/extensions/branding.js"
-    },
-    "./mcp": {
-      "types": "./dist/src/extensions/mcp.d.ts",
-      "import": "./dist/src/extensions/mcp.js"
     }
   },
   "files": [
     "dist/src"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "npm run clean && tsc -p tsconfig.json",
     "prepack": "npm run build",
     "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
     "test": "npm run build && node --test \"dist/test/unit/*.test.js\"",
     "test:model": "npm run build && node --test --test-timeout=3600000 \"dist/test/model/*.test.js\""
   },
   "dependencies": {
-    "@earendil-works/pi-ai": "0.84.2",
-    "@earendil-works/pi-coding-agent": "0.84.2",
-    "@modelcontextprotocol/sdk": "1.30.0",
-    "typebox": "1.3.7"
+    "@earendil-works/pi-agent-core": "1.0.2",
+    "@earendil-works/pi-ai": "1.0.2",
+    "@earendil-works/pi-coding-agent": "1.0.2"
   },
   "devDependencies": {
-    "@earendil-works/pi-agent-core": "0.84.2",
+    "@modelcontextprotocol/sdk": "1.30.0",
+    "typebox": "1.3.27",
     "@types/node": "26.2.0",
     "typescript": "5.9.3"
   }

@@ -1,3 +1,4 @@
+import { normalizeContext } from "@earendil-works/pi-ai";
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { AssistantMessageEvent, Context, SimpleStreamOptions } from "@earendil-works/pi-ai";
@@ -13,9 +14,6 @@ import type { CompactionResult } from "@earendil-works/pi-coding-agent";
 import {
   buildSummaryPrompt,
   compactionPrefixKeys,
-  CONTEXT_WINDOW,
-  MAX_OUTPUT,
-  MODEL_ID,
   PROVIDER_API,
   PROVIDER_ID,
   summaryMaxTokens,
@@ -116,14 +114,15 @@ async function withExtension<T>(
   process.env["XENOLITH_NO_SPAWN"] = "1";
   try {
     const { pi, registered } = fakePi();
-    xenolithProvider(pi);
+    await xenolithProvider(pi);
+    mock.reset();
     const entry = registered.providers[0];
     assert.ok(entry);
     const streamSimple = entry.config.streamSimple;
     assert.ok(streamSimple);
     const stream = async (ctx: Context, options?: SimpleStreamOptions): Promise<AssistantMessageEvent[]> => {
       const events: AssistantMessageEvent[] = [];
-      const source = streamSimple(model, ctx, options);
+      const source = streamSimple(model, normalizeContext(ctx), options);
       for await (const event of source) events.push(event);
       await source.result();
       return events;
@@ -151,14 +150,19 @@ test("the extension registers the xenolith provider with the engine facts", asyn
     assert.ok(entry.config.apiKey);
     const models = entry.config.models ?? [];
     assert.equal(models.length, 1);
-    assert.equal(models[0]?.id, MODEL_ID);
-    assert.equal(models[0]?.contextWindow, CONTEXT_WINDOW);
-    assert.equal(models[0]?.maxTokens, MAX_OUTPUT);
-    assert.deepEqual(models[0]?.cost, { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 });
-    assert.deepEqual(models[0]?.input, ["text"]);
-    assert.equal(models[0]?.reasoning, true);
-    assert.deepEqual(models[0]?.thinkingLevelMap, {
+    const registeredModel = models[0];
+    assert.ok(registeredModel && (!registeredModel.type || registeredModel.type === "chat"));
+    assert.equal(registeredModel.id, model.id);
+    assert.equal(registeredModel.contextWindow, 4096);
+    assert.equal(registeredModel.maxTokens, 4096);
+    assert.deepEqual(registeredModel.cost, { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 });
+    assert.deepEqual(registeredModel.input, ["text"]);
+    assert.equal(registeredModel.reasoning, true);
+    assert.deepEqual(registeredModel.thinkingLevelMap, {
       minimal: null,
+      low: "low",
+      medium: "medium",
+      high: "high",
       xhigh: null,
       max: "max",
     });

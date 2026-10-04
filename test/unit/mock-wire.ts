@@ -65,6 +65,7 @@ function tokensOf(text: string | undefined): number {
 export const SERVE_FRAME_BYTES_PER_TOKEN = 16;
 
 export interface MockWireOptions {
+  socketPath?: string;
   contextWindow?: number;
   model?: string;
   maxLine?: number;
@@ -94,13 +95,13 @@ export class MockWireServer {
 
   private constructor(options: MockWireOptions) {
     this.directory = mkdtempSync(join(tmpdir(), "xenopi-mock-wire-"));
-    this.socketPath = join(this.directory, "wire.sock");
+    this.socketPath = options.socketPath ?? join(this.directory, "wire.sock");
     this.contextWindow = options.contextWindow ?? 4096;
     // The service derives its cap from the window; tests that shrink the
     // window to a few tokens are about token budgets, so keep a floor.
     this.maxLine = options.maxLine ?? Math.max(this.contextWindow * SERVE_FRAME_BYTES_PER_TOKEN, 1 << 20);
     this.maxOutput = options.maxOutput ?? this.maxLine; // the service uses one bound for both directions
-    this.model = options.model ?? "gemma-4-26B-A4B-it-qat";
+    this.model = options.model ?? "test-model";
     this.server = createServer((socket) => this.accept(socket));
   }
 

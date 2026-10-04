@@ -1,4 +1,6 @@
 import type { Context, Message, Tool } from "@earendil-works/pi-ai";
+import { getCurrentSystemPrompt, getCurrentTools, normalizeContext } from "@earendil-works/pi-ai";
+import { WireError } from "../wire/protocol.js";
 import type { WireCall, WireMessage, WireToolDeclaration } from "../wire/protocol.js";
 
 export interface TranslatedMessage {
@@ -35,6 +37,7 @@ function textOf(content: Message["content"]): string {
   const parts: string[] = [];
   for (const item of content) {
     if (item.type === "text") parts.push(item.text);
+    else throw new WireError("invalid_request", "Xenolith wire protocol v1 accepts text input only");
   }
   return parts.join("");
 }
@@ -54,7 +57,7 @@ export function translateTools(tools: Tool[] | undefined): WireToolDeclaration[]
   });
 }
 
-export function translateMessage(message: Message): TranslatedMessage {
+export function translateMessage(message: Exclude<Message, { role: "system" }>): TranslatedMessage {
   if (message.role === "user") {
     const wire: WireMessage = { role: "user", text: textOf(message.content) };
     return { message: wire, key: keyOf(wire), toolCallIds: [], toolResultId: undefined };
@@ -92,13 +95,17 @@ export function keyOf(message: WireMessage): string {
 }
 
 export function translateContext(context: Context): TranslatedContext {
-  const tools = translateTools(context.tools);
+  const transcript = normalizeContext(context);
+  const system = getCurrentSystemPrompt(transcript.messages) || undefined;
+  const tools = translateTools(getCurrentTools(transcript.messages));
   return {
-    system: context.systemPrompt,
-    systemKey: stableStringify(context.systemPrompt || null),
+    system,
+    systemKey: stableStringify(system || null),
     tools,
     toolsKey: stableStringify(tools),
-    messages: context.messages.map(translateMessage),
+    // Protocol v1 carries one prompt/tool set outside the conversation. A
+    // changed effective prompt or tool set triggers the adapter's rebuild.
+    messages: transcript.messages.filter((message) => message.role !== "system").map(translateMessage),
   };
 }
 

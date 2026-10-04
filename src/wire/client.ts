@@ -1,5 +1,7 @@
 import { spawn } from "node:child_process";
+import { mkdirSync } from "node:fs";
 import { connect, type Socket } from "node:net";
+import { dirname } from "node:path";
 import type { XenolithSettings } from "../config.js";
 import {
   isWireEvent,
@@ -13,10 +15,8 @@ import {
   type WireToolDeclaration,
 } from "./protocol.js";
 
-/** Frame bound until describe says otherwise: the service derives its
- * single-line cap from the context window (262144 tokens x 16 bytes) and
- * advertises it as `max_frame`; the client mirrors that value. */
-export const DEFAULT_MAX_FRAME_BYTES = 262144 * 16;
+/** Bootstrap buffer bound for the describe handshake; replaced by max_frame. */
+export const DEFAULT_MAX_FRAME_BYTES = 4 * 1024 * 1024;
 export const FRAME_TOO_LARGE =
   "the wire request frame exceeds the single-line protocol limit of the xenolith service";
 export const RECORD_UNREADABLE =
@@ -204,7 +204,8 @@ export interface ConnectOptions {
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => {
-    setTimeout(resolve, ms).unref?.();
+    // Startup may be the only active operation, before Pi opens its UI.
+    setTimeout(resolve, ms);
   });
 }
 
@@ -226,6 +227,8 @@ function connectOnce(path: string): Promise<Socket> {
 export interface SpawnDiagnostics {
   stderr: string;
   spawnError: string | undefined;
+  exited?: boolean;
+  exitCode?: number | null;
 }
 
 export function spawnService(settings: XenolithSettings): SpawnDiagnostics {
@@ -245,6 +248,8 @@ export function spawnService(settings: XenolithSettings): SpawnDiagnostics {
   ];
   if (settings.stateDir) args.push("--state", settings.stateDir);
   if (settings.cacheDir) args.push("--cache", settings.cacheDir);
+  // An explicit --socket path makes its parent the caller's responsibility.
+  mkdirSync(dirname(settings.socket), { recursive: true, mode: 0o700 });
   const diagnostics: SpawnDiagnostics = { stderr: "", spawnError: undefined };
   const child = spawn(settings.bin, args, {
     detached: true,
@@ -253,6 +258,10 @@ export function spawnService(settings: XenolithSettings): SpawnDiagnostics {
   child.on("error", (error: Error) => {
     diagnostics.spawnError = error.message;
   });
+  child.on("close", (code) => {
+    diagnostics.exited = true;
+    diagnostics.exitCode = code;
+  });
   const stderr = child.stderr;
   if (stderr) {
     stderr.setEncoding("utf8");
@@ -260,6 +269,9 @@ export function spawnService(settings: XenolithSettings): SpawnDiagnostics {
       diagnostics.stderr = `${diagnostics.stderr}${chunk}`.slice(-MAX_STDERR_TAIL);
     });
     stderr.on("error", () => undefined);
+    // Keep startup diagnostics without keeping a finished CLI alive for the
+    // detached engine's entire lifetime. The retry timer keeps startup alive.
+    if ("unref" in stderr && typeof stderr.unref === "function") stderr.unref();
   }
   child.unref();
   return diagnostics;
@@ -277,12 +289,16 @@ export async function openConnection(options: ConnectOptions): Promise<WireConne
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
       if (!settings.spawn) break;
+      // Retry the socket once after exit: another concurrent launcher may
+      // have won the engine lock and started a reachable service.
+      if (diagnostics?.spawnError || diagnostics?.exited) break;
       if (!diagnostics) diagnostics = spawnService(settings);
       await sleep(Math.min(baseDelayMs * 2 ** Math.min(attempt, 5), 2000));
     }
   }
   const details: string[] = [`cannot reach the xenolith wire service at ${settings.socket}`, lastError.message];
   if (diagnostics?.spawnError) details.push(`spawn failed: ${diagnostics.spawnError}`);
+  if (diagnostics?.exited) details.push(`xenolith exited with code ${String(diagnostics.exitCode)}`);
   if (diagnostics?.stderr) details.push(`xenolith stderr: ${diagnostics.stderr.trim()}`);
   throw new WireError("io_error", details.join(": "));
 }

@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
-import { readFileSync, rmSync } from "node:fs";
+import { rmSync } from "node:fs";
 import { dirname, join } from "node:path";
 import test, { after } from "node:test";
 import { fileURLToPath } from "node:url";
 import { isContextOverflow } from "@earendil-works/pi-ai";
+import type { AgentSessionEvent } from "@earendil-works/pi-coding-agent";
 import { BindingStore } from "../../src/adapter/bindings.js";
 import {
   disposeRoot,
@@ -38,9 +39,9 @@ async function withService(
 
 test("multi-turn tool loop is append-only on the wire", async () => {
   await withService(async (service) => {
-    const handle = await openAgentSession(service, ["local__echo"]);
+    const handle = await openAgentSession(service, ["mcp__local__echo"]);
     try {
-      await handle.session.prompt("Call the local__echo tool with the message ping, then reply done.");
+      await handle.session.prompt("Call the mcp__local__echo tool with the message ping, then reply done.");
       await settle(handle.session);
       const first = lastAssistantUsage(handle.session);
       assert.ok(first.totalTokens > 0);
@@ -55,9 +56,9 @@ test("multi-turn tool loop is append-only on the wire", async () => {
       );
       assert.ok(second.input < 200, `expected a small prefill, got input=${second.input}`);
     } finally {
-      handle.dispose();
+      await handle.dispose();
     }
-  }, { servers: { local: { transport: "stdio", command: process.execPath, args: [stdioFixture] } } });
+  }, { mcpServers: { local: { exposure: "direct", command: process.execPath, args: [stdioFixture] } } });
 });
 
 test("a service restart resumes the session at near-zero prefill", async () => {
@@ -72,7 +73,7 @@ test("a service restart resumes the session at near-zero prefill", async () => {
       sessionFile = first.session.sessionFile;
       assert.ok(sessionFile);
     } finally {
-      first.dispose();
+      await first.dispose();
     }
 
     const restarted = await restartService(service);
@@ -87,7 +88,7 @@ test("a service restart resumes the session at near-zero prefill", async () => {
       );
       assert.ok(after.input < 200, `expected a near-zero prefill after restart, got input=${after.input}`);
     } finally {
-      second.dispose();
+      await second.dispose();
     }
     return restarted;
   });
@@ -134,7 +135,7 @@ test("branch navigation rewinds the wire record instead of rebuilding", async ()
         connection.close();
       }
     } finally {
-      handle.dispose();
+      await handle.dispose();
     }
   });
 });
@@ -164,64 +165,48 @@ test("compaction runs through session_before_compact at near-zero prefill", asyn
       assert.ok(result.usage.input < 400, `expected a near-zero prefill summary, got input=${result.usage.input}`);
       assert.ok(handle.session.messages.length < messagesBefore, "pi's context must be compacted afterwards");
     } finally {
-      handle.dispose();
+      await handle.dispose();
     }
   });
 });
 
-test("an oversized prompt surfaces context_length_exceeded and pi recovers", async () => {
+test("an oversized prompt reaches Pi's bounded overflow recovery", async () => {
   await withService(async (service) => {
     const handle = await openAgentSession(service);
     try {
       await handle.session.prompt("Say alpha.");
       await settle(handle.session);
 
+      let overflowed = false;
+      const recovery: Extract<AgentSessionEvent, { type: "compaction_end" }>[] = [];
+      const unsubscribe = handle.session.subscribe((event) => {
+        if (event.type === "message_end" && event.message.role === "assistant") {
+          overflowed ||= isContextOverflow(event.message, handle.session.model!.contextWindow);
+        }
+        if (event.type === "compaction_end" && event.reason === "overflow") recovery.push(event);
+      });
       const oversized = `Ignore this filler. ${"filler ".repeat(300000)}Answer with one word.`;
       await handle.session.prompt(oversized);
       await settle(handle.session);
-
-      const errorMessage = lastAssistantError(handle.session);
-      const overflowed =
-        errorMessage !== undefined &&
-        isContextOverflow(
-          {
-            role: "assistant",
-            content: [],
-            api: "xenolith-wire",
-            provider: "xenolith",
-            model: "gemma-4-26B-A4B-it-qat",
-            usage: {
-              input: 0,
-              output: 0,
-              cacheRead: 0,
-              cacheWrite: 0,
-              totalTokens: 0,
-              cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
-            },
-            stopReason: "error",
-            errorMessage,
-            timestamp: Date.now(),
-          },
-          262144,
-        );
-      const compacted = readFileSync(handle.session.sessionFile ?? "/dev/null", "utf8").includes('"type":"compaction"');
-      assert.ok(
-        overflowed || compacted,
-        `expected the wire overflow to reach pi's recovery path, error was ${String(errorMessage)}`,
-      );
+      unsubscribe();
+      // Pi can omit the failed assistant from its projected history during
+      // recovery. Observe the actual events instead of only the final history.
+      assert.ok(overflowed, "expected a recognized wire context overflow");
+      assert.ok(recovery.length > 0 && recovery.length <= 2, "expected bounded overflow recovery");
+      assert.ok(recovery.some((event) => event.result || event.errorMessage), "recovery must report a result or an actionable failure for an oversized single message");
     } finally {
-      handle.dispose();
+      await handle.dispose();
     }
   });
 });
 
 test("an MCP tool executes end to end inside the agent loop", async () => {
   await withService(async (service) => {
-    const handle = await openAgentSession(service, ["local__echo"]);
+    const handle = await openAgentSession(service, ["mcp__local__echo"]);
     try {
-      assert.ok(handle.session.getAllTools().some((tool) => tool.name === "local__echo"));
-      await handle.session.prompt("Use the local__echo tool with message xenopi and then repeat its output.");
+      await handle.session.prompt("Use the mcp__local__echo tool with message xenopi and then repeat its output.");
       await settle(handle.session);
+      assert.ok(handle.session.getAllTools().some((tool) => tool.name === "mcp__local__echo"));
 
       const results = handle.session.messages.filter((message) => message.role === "toolResult");
       assert.ok(results.length > 0, "expected the MCP tool to have executed");
@@ -231,9 +216,9 @@ test("an MCP tool executes end to end inside the agent loop", async () => {
         .join(" ");
       assert.match(text, /stdio:xenopi/);
     } finally {
-      handle.dispose();
+      await handle.dispose();
     }
-  }, { servers: { local: { transport: "stdio", command: process.execPath, args: [stdioFixture] } } });
+  }, { mcpServers: { local: { exposure: "direct", command: process.execPath, args: [stdioFixture] } } });
 });
 
 test("the orphan sweep deletes wire sessions for deleted pi sessions", async () => {
@@ -246,7 +231,7 @@ test("the orphan sweep deletes wire sessions for deleted pi sessions", async () 
       keptWire = new BindingStore(service.agentDir).get(keep.session.sessionId);
       assert.ok(keptWire);
     } finally {
-      keep.dispose();
+      await keep.dispose();
     }
     const handle = await openAgentSession(service);
     let wireSession: string | undefined;
@@ -263,7 +248,7 @@ test("the orphan sweep deletes wire sessions for deleted pi sessions", async () 
       assert.ok(doomedFile);
       sessionDir = dirname(doomedFile);
     } finally {
-      handle.dispose();
+      await handle.dispose();
     }
     rmSync(doomedFile as string);
     const { activeAdapters } = await import("../../src/extensions/provider.js");
@@ -286,6 +271,26 @@ test("the orphan sweep deletes wire sessions for deleted pi sessions", async () 
       connection.close();
     }
   });
+});
+
+test("native codemode calls MCP with the real model before and after reload", async () => {
+  await withService(async (service) => {
+    const handle = await openAgentSession(service, ["codemode", "mcp__local__echo"]);
+    try {
+      for (const marker of ["first-native-call", "after-reload"]) {
+        if (marker === "after-reload") await handle.session.reload();
+        await handle.session.prompt(
+          `Call codemode with this JavaScript: text(await tools.mcp__local__echo({message: "${marker}"})); Then say done.`,
+        );
+        await settle(handle.session);
+        assert.equal(lastAssistantError(handle.session), undefined);
+        const results = handle.session.messages.filter((message) => message.role === "toolResult" && message.toolName === "codemode");
+        assert.ok(results.some((message) => message.role === "toolResult" && JSON.stringify(message.content).includes(`stdio:${marker}`)), "expected a successful native MCP call from codemode");
+      }
+    } finally {
+      await handle.dispose();
+    }
+  }, { mcpServers: { local: { command: process.execPath, args: [stdioFixture] } } });
 });
 
 after(async () => {

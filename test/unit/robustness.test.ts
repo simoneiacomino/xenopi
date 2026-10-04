@@ -1,18 +1,15 @@
 import assert from "node:assert/strict";
 import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import test from "node:test";
-import { fileURLToPath } from "node:url";
 import { XenolithAdapter } from "../../src/adapter/adapter.js";
 import { FRAME_TOO_LARGE, openConnection } from "../../src/wire/client.js";
-import { connectServer } from "../../src/extensions/mcp.js";
 import { assistant, assistantFrom, collect, context, harness, model, settingsFor, toolResult, user } from "./harness.js";
 import type { Message } from "@earendil-works/pi-ai";
 import { MockWireServer } from "./mock-wire.js";
 
 const SESSION = "0199dddd-2222-7333-8444-555566667777";
-const here = dirname(fileURLToPath(import.meta.url));
 
 const weatherTool = {
   name: "get_weather",
@@ -142,6 +139,7 @@ test("a history response the service cannot frame falls back to a rebuild", asyn
     "describe",
     "open",
     "history",
+    "describe",
     "open",
     "rebuild",
     "history",
@@ -345,22 +343,7 @@ test("a spawn that cannot start at all reports the spawn failure", async (t) => 
   );
 });
 
-test("a hung MCP server is abandoned after its connect timeout", async () => {
-  const started = Date.now();
-  await assert.rejects(
-    () =>
-      connectServer("hung", {
-        transport: "stdio",
-        command: process.execPath,
-        args: [join(here, "fixtures", "mcp-hung-server.js")],
-        timeoutMs: 400,
-      }),
-    /did not complete its handshake in time|did not list its tools in time/,
-  );
-  assert.ok(Date.now() - started < 5000);
-});
-
-test("the adapter warns when the service serves a different model", async (t) => {
+test("the adapter discovers a service model without built-in model assumptions", async (t) => {
   const mock = await MockWireServer.start({ model: "some-other-model", contextWindow: 8192 });
   const agentDir = mkdtempSync(join(tmpdir(), "xenopi-describe-"));
   t.after(async () => {
@@ -377,10 +360,10 @@ test("the adapter warns when the service serves a different model", async (t) =>
   t.after(() => adapter.close());
   mock.turns.push({ text: "a", stop: "stop" });
 
-  await collect(adapter, context([user("one")]), { sessionId: SESSION });
-
-  assert.equal(warnings.some((message) => message.includes("some-other-model")), true);
-  assert.equal(warnings.some((message) => message.includes("context window")), true);
+  const info = await adapter.describe();
+  assert.equal(info.model, "some-other-model");
+  assert.equal(info.context_window, 8192);
+  assert.deepEqual(warnings, []);
 });
 
 test("a transcript near the window rebuilds and reconciles in one frame each (3.7 finding 3)", async (t) => {

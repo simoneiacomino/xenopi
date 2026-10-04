@@ -61,6 +61,6 @@ test("the XenoPi header replaces the stock pi header in TUI mode", () => {
   assert.ok(factory);
   const output = factory({}, fakeTheme).render().join("\n");
   assert.match(output, /xenopi/);
-  assert.match(output, /XenoPi runs local models through Xenolith/);
+  assert.match(output, /XenoPi runs local models through the Xenolith service/);
   assert.doesNotMatch(output, /Pi can explain/);
 });

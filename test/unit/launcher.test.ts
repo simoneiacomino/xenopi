@@ -16,7 +16,7 @@ import {
   seedBrandingPackage,
   seedAgentDir,
 } from "../../src/launcher.js";
-import { MODEL_ID, PROVIDER_ID } from "../../src/product.js";
+import { PROVIDER_ID } from "../../src/product.js";
 
 function tempHome(): string {
   return mkdtempSync(join(tmpdir(), "xenopi-home-"));
@@ -52,10 +52,10 @@ test("prepareLaunch seeds an isolated branded agent dir", () => {
 
     const settings = JSON.parse(readFileSync(plan.settingsPath, "utf8")) as Record<string, unknown>;
     assert.equal(settings["defaultProvider"], PROVIDER_ID);
-    assert.equal(settings["defaultModel"], MODEL_ID);
+    assert.equal(settings["defaultModel"], undefined);
     assert.deepEqual(settings["extensions"], extensionPaths());
     for (const path of extensionPaths()) {
-      assert.match(path, /dist\/src\/extensions\/(branding|provider|mcp)\.js$/);
+      assert.match(path, /dist\/src\/extensions\/(branding|provider)\.js$/);
     }
     assert.equal(plan.cliPath, resolvePiCli());
     assert.equal(existsSync(plan.cliPath), true);

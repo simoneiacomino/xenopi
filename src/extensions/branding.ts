@@ -9,12 +9,12 @@ import { XENOPI_VERSION } from "../product.js";
 export const XENOPI_NAME = "XenoPi";
 
 export const XENOPI_IDENTITY =
-  "You are an expert coding assistant operating inside pi, a local first coding agent harness designed for intel Xe laptops. You help users by reading files, executing commands, editing code, and writing new files.";
+  "You are an expert coding assistant operating inside XenoPi, a coding agent connected to the Xenolith inference service. You help users by reading files, executing commands, editing code, and writing new files.";
 
 const PI_DEFAULT_IDENTITY =
   "You are an expert coding assistant operating inside pi, a coding agent harness. You help users by reading files, executing commands, editing code, and writing new files.";
 const BRAND_MARKER =
-  "You are an expert coding assistant operating inside pi, a local first coding agent harness designed for intel Xe laptops.";
+  "You are an expert coding assistant operating inside XenoPi, a coding agent connected to the Xenolith inference service.";
 
 export function brandSystemPrompt(systemPrompt: string): string {
   let branded = systemPrompt;
@@ -51,7 +51,7 @@ export function installXenoPiHeader(ctx: ExtensionContext): void {
       ].join(theme.fg("muted", " · "));
       const description = theme.fg(
         "dim",
-        "XenoPi runs local models through Xenolith on Intel laptop hardware.",
+        "XenoPi runs local models through the Xenolith service.",
       );
       return ["", logo, hints, description, ""];
     },

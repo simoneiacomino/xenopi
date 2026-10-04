@@ -4,11 +4,10 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { connect } from "node:net";
-import { createAgentSession, SessionManager, SettingsManager, type AgentSession } from "@earendil-works/pi-coding-agent";
+import { createAgentSession, createCodemodeExtension, createMcpExtension, createToolSearchExtension, DefaultResourceLoader, SessionManager, SettingsManager, type AgentSession } from "@earendil-works/pi-coding-agent";
 import type { Api, Model } from "@earendil-works/pi-ai";
 import { openConnection, type WireConnection } from "../../src/wire/client.js";
 import {
-  MODEL_ID,
   PROVIDER_API,
   PROVIDER_BASE_URL,
   PROVIDER_ID,
@@ -16,7 +15,9 @@ import {
 } from "../../src/extensions/provider.js";
 import { extensionPaths, packageRoot } from "../../src/launcher.js";
 import { xenolithDefaultStateDir } from "../../src/config.js";
-import type { McpConfig } from "../../src/extensions/mcp.js";
+import { describeService } from "../../src/wire/describe.js";
+import type { WireDescribe } from "../../src/wire/protocol.js";
+export interface McpConfig { mcpServers: Record<string, Record<string, unknown>>; }
 import type { XenolithSettings } from "../../src/config.js";
 
 export const IDLE_SHUTDOWN_MINUTES = 2;
@@ -70,8 +71,8 @@ process.on("exit", () => {
   }
 });
 
-export function batteryModel(): Model<Api> {
-  const definition = providerModel();
+export function batteryModel(info: WireDescribe): Model<Api> {
+  const definition = providerModel(info);
   return {
     id: definition.id,
     name: definition.name,
@@ -79,6 +80,7 @@ export function batteryModel(): Model<Api> {
     provider: PROVIDER_ID,
     baseUrl: PROVIDER_BASE_URL,
     reasoning: definition.reasoning,
+    thinkingLevelMap: definition.thinkingLevelMap,
     input: definition.input,
     cost: definition.cost,
     contextWindow: definition.contextWindow,
@@ -165,7 +167,6 @@ export function seedAgent(root: string, mcp?: McpConfig): string {
       {
         extensions: extensionPaths(packageRoot()),
         defaultProvider: PROVIDER_ID,
-        defaultModel: MODEL_ID,
         quietStartup: true,
         compaction: { enabled: true, reserveTokens: 16384, keepRecentTokens: 20000 },
       },
@@ -289,11 +290,12 @@ export async function scratchConnection(service: Service): Promise<WireConnectio
 
 export interface SessionHandle {
   session: AgentSession;
-  dispose(): void;
+  dispose(): Promise<void>;
 }
 
 const MANAGED_ENV = [
   "PI_CODING_AGENT_DIR",
+  "XENOPI_CODING_AGENT_DIR",
   "XENOLITH_BIN",
   "XENOLITH_MODEL",
   "XENOLITH_SOCKET",
@@ -304,30 +306,40 @@ export async function openAgentSession(service: Service, tools?: string[], sessi
   const saved = new Map<string, string | undefined>();
   for (const key of MANAGED_ENV) saved.set(key, process.env[key]);
   process.env["PI_CODING_AGENT_DIR"] = service.agentDir;
+  process.env["XENOPI_CODING_AGENT_DIR"] = service.agentDir;
   process.env["XENOLITH_BIN"] = XENOLITH_BIN;
   process.env["XENOLITH_MODEL"] = XENOLITH_MODEL;
   process.env["XENOLITH_SOCKET"] = service.socket;
   process.env["XENOLITH_NO_SPAWN"] = "1";
   const settingsManager = SettingsManager.create(service.root, service.agentDir);
+  const info = await describeService(wireSettings(service));
+  const resourceLoader = new DefaultResourceLoader({
+    cwd: service.root, agentDir: service.agentDir, settingsManager,
+    extensionFactories: [createCodemodeExtension(), createToolSearchExtension(), createMcpExtension()],
+  });
+  await resourceLoader.reload();
   const options = {
+    resourceLoader,
     cwd: service.root,
     agentDir: service.agentDir,
     settingsManager,
-    model: batteryModel(),
+    model: batteryModel(info),
     noTools: "all" as const,
     ...(tools ? { tools } : {}),
     ...(sessionFile ? { sessionManager: SessionManager.open(sessionFile, undefined, service.root) } : {}),
   };
   const created = await createAgentSession(options);
+  await created.session.bindExtensions({ onError: (error) => { throw new Error(error.error); } });
   if (created.session.model?.provider !== PROVIDER_ID) {
     created.session.dispose();
     throw new Error(
-      `the battery session selected ${String(created.session.model?.provider)}/${String(created.session.model?.id)} instead of ${PROVIDER_ID}/${MODEL_ID}`,
+      `the battery session selected ${String(created.session.model?.provider)}/${String(created.session.model?.id)} instead of ${PROVIDER_ID}/${info.model}`,
     );
   }
   return {
     session: created.session,
-    dispose: () => {
+    dispose: async () => {
+      await created.session.extensionRunner.emit({ type: "session_shutdown", reason: "quit" });
       created.session.dispose();
       for (const [key, value] of saved) {
         if (value === undefined) delete process.env[key];

@@ -1,7 +1,7 @@
 import type { Api, Context, Model, SimpleStreamOptions, Usage } from "@earendil-works/pi-ai";
 import { createAssistantMessageEventStream, type AssistantMessageEventStream } from "@earendil-works/pi-ai";
 import { resolveXenolithSettings, type XenolithSettings } from "../config.js";
-import { CONTEXT_WINDOW, MAX_OUTPUT, MODEL_ID } from "../product.js";
+import { describeConnection } from "../wire/describe.js";
 import {
   appendRequest,
   createSessionRequest,
@@ -24,6 +24,7 @@ import {
   type WireHistoryEntry,
   type WireMessage,
   type WireToolDeclaration,
+  type WireDescribe,
 } from "../wire/protocol.js";
 import { BindingStore, listPiSessionIds } from "./bindings.js";
 import {
@@ -72,12 +73,7 @@ export interface AdapterOptions {
   log?: (message: string) => void;
   /** User-facing notice (pi's ctx.ui.notify when available); falls back to log. */
   onNotice?: (message: string, level: "info" | "warning") => void;
-  expected?: { model: string; contextWindow: number };
 }
-
-export const ENGINE_MODEL_ID = MODEL_ID;
-export const ENGINE_CONTEXT_WINDOW = CONTEXT_WINDOW;
-export const ENGINE_MAX_OUTPUT = MAX_OUTPUT;
 
 export class XenolithAdapter {
   readonly agentDir: string;
@@ -87,9 +83,7 @@ export class XenolithAdapter {
   private readonly pending = new Map<string, Promise<SessionState>>();
   private readonly onClassification: ((classification: Classification) => void) | undefined;
   private readonly log: (message: string) => void;
-  private readonly expected: { model: string; contextWindow: number };
-  private described = false;
-  private frameLimit: number | undefined;
+  private description: WireDescribe | undefined;
   private kvstoreDisabled = false;
   private onNotice: ((message: string, level: "info" | "warning") => void) | undefined;
 
@@ -99,7 +93,6 @@ export class XenolithAdapter {
     this.bindings = new BindingStore(options.agentDir);
     this.onClassification = options.onClassification;
     this.log = options.log ?? ((message: string) => process.stderr.write(`${message}\n`));
-    this.expected = options.expected ?? { model: ENGINE_MODEL_ID, contextWindow: ENGINE_CONTEXT_WINDOW };
     this.onNotice = options.onNotice;
   }
 
@@ -180,6 +173,15 @@ export class XenolithAdapter {
   }
 
   private async run(builder: TurnBuilder, context: Context, options?: SimpleStreamOptions): Promise<void> {
+    // A stateful provider exposes the logical context before choosing append,
+    // rewind, or rebuild. Replacements must go through the same translation.
+    const replacement = await options?.onPayload?.(context, builder.model);
+    if (replacement !== undefined) {
+      if (!replacement || typeof replacement !== "object" || !("messages" in replacement) || !Array.isArray(replacement.messages)) {
+        throw new WireError("invalid_request", "Xenolith onPayload must return a Pi context with messages");
+      }
+      context = replacement as Context;
+    }
     const translated = translateContext(context);
     const params = genParams(options);
     if (this.isOneOff(options)) {
@@ -189,6 +191,7 @@ export class XenolithAdapter {
     }
     const piSession = options?.sessionId as string;
     const state = await this.session(piSession, translated);
+    this.validateGeneration(builder.model, params);
     await this.exclusive(state, async () => {
       try {
         await this.synchronize(state, translated);
@@ -222,6 +225,7 @@ export class XenolithAdapter {
   ): Promise<void> {
     const connection = await this.connect();
     try {
+      this.validateGeneration(builder.model, params);
       const request = ephemeralRequest(
         translated.system,
         translated.tools,
@@ -249,39 +253,47 @@ export class XenolithAdapter {
   /** Open a wire connection carrying the frame bound the service advertised. */
   private async connect(): Promise<WireConnection> {
     const connection = await openConnection({ settings: this.settings });
-    if (this.frameLimit !== undefined) connection.maxFrameBytes = this.frameLimit;
-    await this.verifyEngine(connection);
-    return connection;
+    try {
+      await this.verifyEngine(connection);
+      return connection;
+    } catch (error) {
+      connection.close();
+      throw error;
+    }
+  }
+
+  async describe(): Promise<WireDescribe> {
+    const connection = await this.connect();
+    connection.close();
+    return this.description!;
   }
 
   async verifyEngine(connection: WireConnection): Promise<void> {
-    if (this.described) return;
-    this.described = true;
-    try {
-      const info = await connection.request({ op: "describe" });
-      const model = String(info["model"]);
-      const window = Number(info["context_window"]);
-      const maxFrame = Number(info["max_frame"]);
-      if (Number.isFinite(maxFrame) && maxFrame > 0) {
-        this.frameLimit = maxFrame;
-        connection.maxFrameBytes = maxFrame;
+    const info = await describeConnection(connection);
+    const previous = this.description;
+    if (previous && (previous.model !== info.model || previous.context_window !== info.context_window ||
+        previous.max_output !== info.max_output || stableStringify(previous.reasoning) !== stableStringify(info.reasoning))) {
+      throw new WireError("invalid_request", "Xenolith model capabilities changed; reload XenoPi before continuing");
+    }
+    this.description = info;
+    if (!info.kvstore && !this.kvstoreDisabled) {
+      this.notice("the xenolith snapshot store is disabled (see the engine log); sessions will not resume from cache");
+    }
+    this.kvstoreDisabled = !info.kvstore;
+  }
+
+  private validateGeneration(model: Model<Api>, params: WireGenParams): void {
+    const info = this.description;
+    if (!info || model.id !== info.model) {
+      throw new WireError("invalid_request", "the selected model is not served by this Xenolith connection; reload XenoPi");
+    }
+    if (params.reasoning) {
+      if (params.reasoning.effort && !info.reasoning.efforts.includes(params.reasoning.effort)) {
+        throw new WireError("invalid_request", "the Xenolith service does not advertise the requested reasoning effort");
       }
-      if (info["kvstore"] === false) {
-        this.kvstoreDisabled = true;
-        this.notice("the xenolith snapshot store is disabled (see the engine log); sessions will not resume from cache");
+      if (params.reasoning.budget_tokens !== undefined && !info.reasoning.budget_tokens) {
+        throw new WireError("invalid_request", "the Xenolith service does not advertise reasoning token budgets");
       }
-      if (model !== this.expected.model) {
-        this.log(
-          `xenopi WARNING: the xenolith service serves model ${model} but the provider advertises ${this.expected.model}`,
-        );
-      }
-      if (Number.isFinite(window) && window !== this.expected.contextWindow) {
-        this.log(
-          `xenopi WARNING: the xenolith service reports a context window of ${window} tokens but the provider advertises ${this.expected.contextWindow}`,
-        );
-      }
-    } catch (error) {
-      this.log(`xenopi: describe failed: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -581,6 +593,7 @@ export class XenolithAdapter {
     }
     try {
       for await (const event of stream) {
+        options?.onProviderStreamEvent?.(event, builder.model);
         if (!started) {
           started = true;
           if (deferredCancel) connection.cancel();

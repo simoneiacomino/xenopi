@@ -8,6 +8,7 @@ import type {
   ThinkingContent,
   ToolCall,
   Usage,
+  JsonObject,
 } from "@earendil-works/pi-ai";
 import type { WireStop, WireUsage } from "../wire/protocol.js";
 import type { WireCall, WireMessage } from "../wire/protocol.js";
@@ -55,7 +56,7 @@ export class TurnBuilder {
 
   constructor(
     private readonly stream: AssistantMessageEventStream,
-    model: Model<Api>,
+    readonly model: Model<Api>,
   ) {
     this.message = {
       role: "assistant",
@@ -148,7 +149,9 @@ export class TurnBuilder {
       type: "toolCall",
       id: String(id),
       name,
-      arguments: args,
+      // Arguments arrive as JSON over the wire; round-trip to enforce the same
+      // contract for callers constructing a turn directly.
+      arguments: JSON.parse(JSON.stringify(args)) as JsonObject,
     };
     const contentIndex = this.message.content.length;
     this.message.content.push(toolCall);

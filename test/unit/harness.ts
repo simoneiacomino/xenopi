@@ -12,12 +12,12 @@ import type {
 } from "@earendil-works/pi-ai";
 import { XenolithAdapter, type Classification } from "../../src/adapter/adapter.js";
 import type { XenolithSettings } from "../../src/config.js";
-import { MODEL_ID, PROVIDER_API, PROVIDER_ID } from "../../src/extensions/provider.js";
+import { PROVIDER_API, PROVIDER_ID } from "../../src/extensions/provider.js";
 import { MockWireServer, type MockWireOptions } from "./mock-wire.js";
 
 export const model: Model<Api> = {
-  id: MODEL_ID,
-  name: "Gemma 4 26B A4B (xenolith)",
+  id: "test-model",
+  name: "Test model",
   api: PROVIDER_API,
   provider: PROVIDER_ID,
   baseUrl: "unix:///xenolith/wire.sock",
@@ -134,7 +134,7 @@ export function assistant(text: string): Message {
     content: [{ type: "text", text }],
     api: "xenolith-wire",
     provider: "xenolith",
-    model: "gemma-4-26B-A4B-it-qat",
+    model: "test-model",
     usage: {
       input: 0,
       output: 0,

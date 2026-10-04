@@ -1,23 +1,18 @@
-import type { Api, Model, Context, Message, SimpleStreamOptions } from "@earendil-works/pi-ai";
+import type { Api, Model, TranscriptContext, Message, SimpleStreamOptions } from "@earendil-works/pi-ai";
 import type { AssistantMessageEventStream } from "@earendil-works/pi-ai";
-import { convertToLlm, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { convertToLlm, type ExtensionAPI, type ProviderModelConfig } from "@earendil-works/pi-coding-agent";
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import { XenolithAdapter } from "../adapter/adapter.js";
 import { translateContext } from "../adapter/translate.js";
 import { resolveAgentDir } from "../config.js";
+import type { WireDescribe } from "../wire/protocol.js";
 import {
-  CONTEXT_WINDOW,
-  MAX_OUTPUT,
-  MODEL_ID,
   PROVIDER_API,
   PROVIDER_BASE_URL,
   PROVIDER_ID,
 } from "../product.js";
 
 export {
-  CONTEXT_WINDOW,
-  MAX_OUTPUT,
-  MODEL_ID,
   PROVIDER_API,
   PROVIDER_BASE_URL,
   PROVIDER_ID,
@@ -116,25 +111,23 @@ export function buildSummaryPrompt(previousSummary?: string, customInstructions?
   return `<previous-summary>\n${previousSummary}\n</previous-summary>\n\n${basePrompt}`;
 }
 
-export function providerModel(): {
-  id: string;
-  name: string;
-  reasoning: boolean;
-  thinkingLevelMap: { minimal: null; xhigh: null; max: "max" };
-  input: ("text" | "image")[];
-  cost: { input: number; output: number; cacheRead: number; cacheWrite: number };
-  contextWindow: number;
-  maxTokens: number;
-} {
+type ChatModelConfig = Extract<ProviderModelConfig, { reasoning: boolean }>;
+
+export function providerModel(info: WireDescribe): ChatModelConfig {
+  const thinkingLevelMap: NonNullable<ChatModelConfig["thinkingLevelMap"]> = {
+    minimal: null, low: null, medium: null, high: null, xhigh: null, max: null,
+  };
+  for (const effort of info.reasoning.efforts) thinkingLevelMap[effort] = effort;
   return {
-    id: MODEL_ID,
-    name: "Gemma 4 26B A4B (xenolith)",
-    reasoning: true,
-    thinkingLevelMap: { minimal: null, xhigh: null, max: "max" },
+    id: info.model,
+    name: `${info.model} (Xenolith)`,
+    reasoning: info.reasoning.efforts.length > 0,
+    thinkingLevelMap,
+    // Wire protocol v1 carries text only, regardless of the model behind it.
     input: ["text"],
     cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-    contextWindow: CONTEXT_WINDOW,
-    maxTokens: MAX_OUTPUT,
+    contextWindow: info.context_window,
+    maxTokens: info.max_output,
   };
 }
 
@@ -148,16 +141,16 @@ export function activeAdapters(): XenolithAdapter[] {
   return [...liveAdapters];
 }
 
-export default function xenolithProvider(pi: ExtensionAPI): void {
+export default async function xenolithProvider(pi: ExtensionAPI): Promise<void> {
   const adapter = createAdapter();
+  const info = await adapter.describe();
   liveAdapters.add(adapter);
 
   const streamSimple = (
     model: Model<Api>,
-    context: Context,
+    context: TranscriptContext,
     options?: SimpleStreamOptions,
   ): AssistantMessageEventStream => {
-    void options?.onPayload?.({ provider: PROVIDER_ID, model: model.id }, model);
     return adapter.streamSimple(model, context, options);
   };
 
@@ -167,7 +160,7 @@ export default function xenolithProvider(pi: ExtensionAPI): void {
     apiKey: "xenolith-wire",
     api: PROVIDER_API,
     streamSimple,
-    models: [providerModel()],
+    models: [providerModel(info)],
   });
 
   pi.on("session_start", (_event, ctx) => {
@@ -223,6 +216,7 @@ export default function xenolithProvider(pi: ExtensionAPI): void {
   pi.on("session_shutdown", () => {
     void guard(async () => {
       adapter.close();
+      liveAdapters.delete(adapter);
     });
   });
 }

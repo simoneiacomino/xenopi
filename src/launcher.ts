@@ -14,10 +14,13 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   defaultAgentDir,
+  resolveXenolithSettings,
   PI_AGENT_DIR_ENV,
   XENOPI_AGENT_DIR_ENV,
 } from "./config.js";
-import { MODEL_ID, PROVIDER_ID } from "./product.js";
+import { PROVIDER_ID } from "./product.js";
+import { describeService } from "./wire/describe.js";
+import { migrateMcpConfig } from "./migrate-mcp.js";
 
 const PACKAGE_DIR_ENV = "PI_PACKAGE_DIR";
 
@@ -38,7 +41,6 @@ export function extensionPaths(root: string = packageRoot()): string[] {
   return [
     join(root, "dist", "src", "extensions", "branding.js"),
     join(root, "dist", "src", "extensions", "provider.js"),
-    join(root, "dist", "src", "extensions", "mcp.js"),
   ];
 }
 
@@ -135,7 +137,6 @@ export function seedAgentDir(agentDir: string, paths: string[], root: string = p
   );
   settings["extensions"] = [...paths, ...kept];
   if (settings["defaultProvider"] === undefined) settings["defaultProvider"] = PROVIDER_ID;
-  if (settings["defaultModel"] === undefined) settings["defaultModel"] = MODEL_ID;
   writeAtomic(settingsPath, `${JSON.stringify(settings, null, 2)}\n`);
   return settingsPath;
 }
@@ -145,6 +146,7 @@ export function prepareLaunch(
   root: string = packageRoot(),
 ): LaunchPlan {
   const agentDir = defaultAgentDir(env);
+  migrateMcpConfig(agentDir);
   const paths = extensionPaths(root);
   const settingsPath = seedAgentDir(agentDir, paths, root);
   const brandingPackageDir = seedBrandingPackage(agentDir);
@@ -178,6 +180,16 @@ export function projectOverrideWarning(cwd: string): string | undefined {
 
 export async function launch(argv: string[] = process.argv.slice(2)): Promise<void> {
   const plan = prepareLaunch();
+  const informational = argv.some((arg) => ["--help", "-h", "--version", "-v"].includes(arg)) ||
+    ["mcp", "config", "install", "remove", "update", "list"].includes(argv[0] ?? "");
+  if (!informational) {
+    const settings = readSettings(plan.settingsPath);
+    if (settings["defaultProvider"] === PROVIDER_ID) {
+      const info = await describeService(resolveXenolithSettings(plan.agentDir));
+      settings["defaultModel"] = info.model;
+      writeAtomic(plan.settingsPath, `${JSON.stringify(settings, null, 2)}\n`);
+    }
+  }
   const warning = projectOverrideWarning(process.cwd());
   if (warning) process.stderr.write(`${warning}\n`);
   process.env[PI_AGENT_DIR_ENV] = plan.agentDir;
