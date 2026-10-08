@@ -104,8 +104,26 @@ export interface WireResumeReport {
   tokens: number;
 }
 
+export interface WireInferenceMeasurement {
+  tokens: number;
+  /** Active runtime time in this phase, excluding transport and finalization. */
+  elapsed_ms: number;
+}
+
+export interface WireInference {
+  prefill: WireInferenceMeasurement & { total: number };
+  decode: WireInferenceMeasurement;
+}
+
 export type WireEvent =
   | { event: "start" }
+  | ({ event: "inference_progress";
+       /** First running opens the phase; finished closes it, without implying
+        * success. done/error also close an open phase. Absent on older engines. */
+       state?: "running" | "finished" } & (
+      | ({ phase: "prefill"; total: number } & WireInferenceMeasurement)
+      | ({ phase: "decode" } & WireInferenceMeasurement)
+    ))
   | { event: "progress"; prefilled: number; total: number }
   | { event: "text_delta"; text: string }
   | { event: "reasoning_delta"; text: string }
@@ -119,8 +137,9 @@ export type WireEvent =
       reasoning_close?: "natural" | "soft" | "hard" | "length" | "aborted" | "eos";
       checkpoint?: WireCheckpointReport;
       resume?: WireResumeReport;
+      inference?: WireInference;
     }
-  | { event: "error"; code: WireStatusCode; error: string; tokens?: number; context?: number };
+  | { event: "error"; code: WireStatusCode; error: string; tokens?: number; context?: number; inference?: WireInference };
 
 export interface WireHistoryEntry {
   kind: "system" | "user" | "assistant" | "tool_result";

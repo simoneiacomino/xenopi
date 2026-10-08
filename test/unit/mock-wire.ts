@@ -2,6 +2,7 @@ import { createServer, type Server, type Socket } from "node:net";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { WireEvent } from "../../src/wire/protocol.js";
 
 export interface MockCall {
   name: string;
@@ -9,6 +10,10 @@ export interface MockCall {
 }
 
 export interface MockTurn {
+  /** Optional telemetry before content and while tool arguments are buffered. */
+  progressEvents?: WireEvent[];
+  toolProgressEvents?: WireEvent[];
+  finalProgressEvents?: WireEvent[];
   text?: string;
   reasoning?: string;
   calls?: MockCall[];
@@ -633,6 +638,7 @@ export class MockWireServer {
         return;
       }
       this.send(conn, { event: "start" });
+      for (const event of plan.progressEvents ?? []) this.send(conn, event);
       const reasoning = plan.reasoning ?? "";
       if (reasoning.length > 0)
         this.send(conn, { event: "reasoning_delta", text: reasoning });
@@ -654,11 +660,13 @@ export class MockWireServer {
           if (session) session.toolNames.set(id, call.name);
           calls.push({ id, name: call.name, arguments: call.arguments });
           this.send(conn, { event: "toolcall_start", id, name: call.name });
+          for (const event of plan.toolProgressEvents ?? []) this.send(conn, event);
           this.send(conn, { event: "toolcall_end", id, name: call.name, arguments: call.arguments });
         }
       }
       const reasoningTokens = reasoning.length > 0 ? tokensOf(reasoning) : 0;
       const outputTokens = plan.outputTokens ?? tokensOf(emitted) + reasoningTokens + calls.length;
+      for (const event of plan.finalProgressEvents ?? []) this.send(conn, event);
       if (!session) {
         this.send(conn, {
           event: "done",

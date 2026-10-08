@@ -1,4 +1,5 @@
 import type { XenolithSettings } from "../config.js";
+import type { ConnectionPhase } from "../activity.js";
 import { openConnection, type WireConnection } from "./client.js";
 import { WireError, type WireDescribe } from "./protocol.js";
 
@@ -35,8 +36,11 @@ export async function describeConnection(connection: WireConnection): Promise<Wi
   }
 }
 
-export async function describeService(settings: XenolithSettings): Promise<WireDescribe> {
-  const connection = await openConnection({ settings });
+export async function describeService(
+  settings: XenolithSettings,
+  onStatus?: (phase: ConnectionPhase) => void,
+): Promise<WireDescribe> {
+  const connection = await openConnection({ settings, onStatus });
   try {
     return await describeConnection(connection);
   } finally {

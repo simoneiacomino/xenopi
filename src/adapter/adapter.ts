@@ -35,6 +35,7 @@ import {
   type TranslatedContext,
 } from "./translate.js";
 import { TurnBuilder } from "./turn.js";
+import type { ActivityReporter, ActivitySink, ConnectionPhase } from "../activity.js";
 
 export interface ShadowEntry {
   key: string;
@@ -86,6 +87,8 @@ export class XenolithAdapter {
   private description: WireDescribe | undefined;
   private kvstoreDisabled = false;
   private onNotice: ((message: string, level: "info" | "warning") => void) | undefined;
+  private activitySink: ActivitySink | undefined;
+  private activityId = 0;
 
   constructor(options: AdapterOptions) {
     this.agentDir = options.agentDir;
@@ -99,6 +102,28 @@ export class XenolithAdapter {
   /** Route user-facing notices to a UI sink (set once pi's ctx.ui is available). */
   setNoticeSink(sink: ((message: string, level: "info" | "warning") => void) | undefined): void {
     this.onNotice = sink;
+  }
+
+  setActivitySink(sink: ActivitySink | undefined): void {
+    this.activitySink = sink;
+  }
+
+  private beginActivity(signal?: AbortSignal): { report: ActivityReporter; end: () => void } {
+    const id = ++this.activityId;
+    let ended = false;
+    const report: ActivityReporter = (update) => {
+      if (!ended) this.activitySink?.(id, update);
+    };
+    const end = (): void => {
+      if (ended) return;
+      report({ type: "end" });
+      ended = true;
+      signal?.removeEventListener("abort", end);
+    };
+    report({ type: "begin" });
+    if (signal?.aborted) end();
+    else signal?.addEventListener("abort", end, { once: true });
+    return { report, end };
   }
 
   private notice(message: string, level: "info" | "warning" = "warning"): void {
@@ -156,14 +181,15 @@ export class XenolithAdapter {
   streamSimple(model: Model<Api>, context: Context, options?: SimpleStreamOptions): AssistantMessageEventStream {
     const stream = createAssistantMessageEventStream();
     const builder = new TurnBuilder(stream, model);
-    void this.run(builder, context, options).catch((error: unknown) => {
+    const activity = this.beginActivity(options?.signal);
+    void this.run(builder, context, options, activity.report).catch((error: unknown) => {
       let message = error instanceof Error ? error.message : String(error);
       if (error instanceof WireError) {
         message = errorMessageForPi(error.code, error.message);
         if (error.code === "context_length_exceeded") this.logOverflow(error.detail.tokens, error.detail.context);
       }
       builder.fail(options?.signal?.aborted ? "aborted" : "error", message);
-    });
+    }).finally(activity.end);
     return stream;
   }
 
@@ -172,7 +198,7 @@ export class XenolithAdapter {
     return options.cacheRetention === "none";
   }
 
-  private async run(builder: TurnBuilder, context: Context, options?: SimpleStreamOptions): Promise<void> {
+  private async run(builder: TurnBuilder, context: Context, options?: SimpleStreamOptions, report?: ActivityReporter): Promise<void> {
     // A stateful provider exposes the logical context before choosing append,
     // rewind, or rebuild. Replacements must go through the same translation.
     const replacement = await options?.onPayload?.(context, builder.model);
@@ -186,20 +212,20 @@ export class XenolithAdapter {
     const params = genParams(options);
     if (this.isOneOff(options)) {
       this.onClassification?.("ephemeral");
-      await this.runEphemeral(builder, translated, params, options);
+      await this.runEphemeral(builder, translated, params, options, report);
       return;
     }
     const piSession = options?.sessionId as string;
-    const state = await this.session(piSession, translated);
+    const state = await this.session(piSession, translated, report);
     this.validateGeneration(builder.model, params);
     await this.exclusive(state, async () => {
       try {
-        await this.synchronize(state, translated);
+        await this.synchronize(state, translated, report);
       } catch (error) {
         state.dirty = true;
         throw error;
       }
-      await this.generate(state, builder, params, options);
+      await this.generate(state, builder, params, options, report);
     });
   }
 
@@ -222,8 +248,9 @@ export class XenolithAdapter {
     translated: TranslatedContext,
     params: WireGenParams,
     options?: SimpleStreamOptions,
+    report?: ActivityReporter,
   ): Promise<void> {
-    const connection = await this.connect();
+    const connection = await this.connect(undefined, report);
     try {
       this.validateGeneration(builder.model, params);
       const request = ephemeralRequest(
@@ -232,18 +259,18 @@ export class XenolithAdapter {
         translated.messages.map((entry) => entry.message),
         params,
       );
-      await this.consume(connection, connection.stream(request), builder, options);
+      await this.consume(connection, connection.stream(request), builder, options, undefined, report);
     } finally {
       connection.close();
     }
   }
 
-  private async session(piSession: string, translated: TranslatedContext): Promise<SessionState> {
+  private async session(piSession: string, translated: TranslatedContext, report?: ActivityReporter): Promise<SessionState> {
     const existing = this.sessions.get(piSession);
     if (existing && !existing.connection.closed) return existing;
     const inflight = this.pending.get(piSession);
     if (inflight) return inflight;
-    const created = this.openSession(piSession, translated).finally(() => {
+    const created = this.openSession(piSession, translated, report).finally(() => {
       this.pending.delete(piSession);
     });
     this.pending.set(piSession, created);
@@ -251,10 +278,17 @@ export class XenolithAdapter {
   }
 
   /** Open a wire connection carrying the frame bound the service advertised. */
-  private async connect(): Promise<WireConnection> {
-    const connection = await openConnection({ settings: this.settings });
+  private async connect(onStatus?: (phase: ConnectionPhase) => void, report?: ActivityReporter): Promise<WireConnection> {
+    const connection = await openConnection({
+      settings: this.settings,
+      onStatus: (phase) => {
+        onStatus?.(phase);
+        if (phase !== "ready") report?.({ type: "phase", phase });
+      },
+    });
     try {
       await this.verifyEngine(connection);
+      report?.({ type: "phase", phase: "preparing" });
       return connection;
     } catch (error) {
       connection.close();
@@ -262,8 +296,8 @@ export class XenolithAdapter {
     }
   }
 
-  async describe(): Promise<WireDescribe> {
-    const connection = await this.connect();
+  async describe(onStatus?: (phase: ConnectionPhase) => void): Promise<WireDescribe> {
+    const connection = await this.connect(onStatus);
     connection.close();
     return this.description!;
   }
@@ -307,8 +341,8 @@ export class XenolithAdapter {
     if (process.env["XENOPI_DEBUG"] === "1") this.log(`xenopi[debug] ${message}`);
   }
 
-  private async openSession(piSession: string, translated: TranslatedContext): Promise<SessionState> {
-    const connection = await this.connect();
+  private async openSession(piSession: string, translated: TranslatedContext, report?: ActivityReporter): Promise<SessionState> {
+    const connection = await this.connect(undefined, report);
     const bound = this.bindings.get(piSession);
     if (bound) {
       try {
@@ -450,14 +484,14 @@ export class XenolithAdapter {
     this.syncCallIds(state, translated, state.entries.length);
   }
 
-  private async reconnect(state: SessionState): Promise<void> {
+  private async reconnect(state: SessionState, report?: ActivityReporter): Promise<void> {
     state.connection.close();
-    const connection = await this.connect();
+    const connection = await this.connect(undefined, report);
     await connection.request({ op: "open", session: state.wireSession });
     state.connection = connection;
   }
 
-  private async synchronize(state: SessionState, translated: TranslatedContext): Promise<void> {
+  private async synchronize(state: SessionState, translated: TranslatedContext, report?: ActivityReporter): Promise<void> {
     if (!state.loaded) {
       let recorded: { systemKey: string; toolsKey: string } | undefined;
       try {
@@ -465,7 +499,7 @@ export class XenolithAdapter {
       } catch (error) {
         if (!(error instanceof WireError) || error.message !== RECORD_UNREADABLE) throw error;
         this.log("xenopi: the xenolith record could not be read back, rebuilding from XenoPi's context");
-        await this.reconnect(state);
+        await this.reconnect(state, report);
         state.entries = [];
         state.loaded = true;
         state.dirty = true;
@@ -556,9 +590,10 @@ export class XenolithAdapter {
     builder: TurnBuilder,
     params: WireGenParams,
     options?: SimpleStreamOptions,
+    report?: ActivityReporter,
   ): Promise<void> {
     const stream = state.connection.stream(generateRequest(params));
-    const outcome = await this.consume(state.connection, stream, builder, options, state);
+    const outcome = await this.consume(state.connection, stream, builder, options, state, report);
     if (outcome.kind === "done" && outcome.marker !== null && outcome.stop !== "aborted") {
       state.entries.push({
         key: keyOf(builder.wireMessage),
@@ -577,6 +612,7 @@ export class XenolithAdapter {
     builder: TurnBuilder,
     options?: SimpleStreamOptions,
     state?: SessionState,
+    report?: ActivityReporter,
   ): Promise<{ kind: "done"; stop: string; marker: number | null } | { kind: "error" }> {
     const signal = options?.signal;
     let aborted = false;
@@ -593,6 +629,7 @@ export class XenolithAdapter {
     }
     try {
       for await (const event of stream) {
+        report?.({ type: "event", event });
         options?.onProviderStreamEvent?.(event, builder.model);
         if (!started) {
           started = true;
@@ -603,6 +640,7 @@ export class XenolithAdapter {
             builder.start();
             break;
           case "progress":
+          case "inference_progress":
             break;
           case "text_delta":
             builder.textDelta(event.text);

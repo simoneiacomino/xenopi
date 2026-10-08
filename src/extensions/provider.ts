@@ -6,6 +6,7 @@ import { XenolithAdapter } from "../adapter/adapter.js";
 import { translateContext } from "../adapter/translate.js";
 import { resolveAgentDir } from "../config.js";
 import type { WireDescribe } from "../wire/protocol.js";
+import { InferenceDisplay } from "../progress.js";
 import {
   PROVIDER_API,
   PROVIDER_BASE_URL,
@@ -144,6 +145,7 @@ export function activeAdapters(): XenolithAdapter[] {
 export default async function xenolithProvider(pi: ExtensionAPI): Promise<void> {
   const adapter = createAdapter();
   const info = await adapter.describe();
+  let display: InferenceDisplay | undefined;
   liveAdapters.add(adapter);
 
   const streamSimple = (
@@ -164,11 +166,17 @@ export default async function xenolithProvider(pi: ExtensionAPI): Promise<void> 
   });
 
   pi.on("session_start", (_event, ctx) => {
+    display?.clear();
+    display = ctx.mode === "tui" ? new InferenceDisplay((line) => ctx.ui.setWorkingMessage(line)) : undefined;
+    adapter.setActivitySink(display?.update);
     adapter.setNoticeSink((message, level) => ctx.ui.notify(`xenopi: ${message}`, level));
     void guard(async () => {
       await adapter.sweep(ctx.sessionManager.getSessionDir());
     });
   });
+
+  pi.on("agent_end", () => display?.clear());
+  pi.on("model_select", () => display?.clear());
 
   pi.on("session_before_compact", async (event, ctx) => {
     return guard(async () => {
@@ -214,6 +222,8 @@ export default async function xenolithProvider(pi: ExtensionAPI): Promise<void> 
   });
 
   pi.on("session_shutdown", () => {
+    display?.clear();
+    adapter.setActivitySink(undefined);
     void guard(async () => {
       adapter.close();
       liveAdapters.delete(adapter);

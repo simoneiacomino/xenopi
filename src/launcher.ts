@@ -21,6 +21,7 @@ import {
 import { PROVIDER_ID } from "./product.js";
 import { describeService } from "./wire/describe.js";
 import { migrateMcpConfig } from "./migrate-mcp.js";
+import { withStartupDisplay } from "./startup.js";
 
 const PACKAGE_DIR_ENV = "PI_PACKAGE_DIR";
 
@@ -185,7 +186,9 @@ export async function launch(argv: string[] = process.argv.slice(2)): Promise<vo
   if (!informational) {
     const settings = readSettings(plan.settingsPath);
     if (settings["defaultProvider"] === PROVIDER_ID) {
-      const info = await describeService(resolveXenolithSettings(plan.agentDir));
+      const projectSettings = readSettings(join(process.cwd(), ".xenopi", "settings.json"));
+      const mode = (projectSettings["tuiMode"] ?? settings["tuiMode"]) === "regular" ? "regular" : "fullscreen";
+      const info = await withStartupDisplay((onStatus) => describeService(resolveXenolithSettings(plan.agentDir), onStatus), argv, mode);
       settings["defaultModel"] = info.model;
       writeAtomic(plan.settingsPath, `${JSON.stringify(settings, null, 2)}\n`);
     }

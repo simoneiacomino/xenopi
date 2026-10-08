@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { XenolithAdapter } from "../../src/adapter/adapter.js";
+import type { ActivityUpdate } from "../../src/activity.js";
 import { FRAME_TOO_LARGE, openConnection } from "../../src/wire/client.js";
 import { assistant, assistantFrom, collect, context, harness, model, settingsFor, toolResult, user } from "./harness.js";
 import type { Message } from "@earendil-works/pi-ai";
@@ -125,6 +126,8 @@ test("a history response the service cannot frame falls back to a rebuild", asyn
   h.adapter.close();
 
   const restarted = h.newAdapter();
+  const updates: ActivityUpdate[] = [];
+  restarted.setActivitySink((_id, update) => updates.push(update));
   h.mock.reset();
   h.mock.historyDrops = 1;
 
@@ -146,6 +149,9 @@ test("a history response the service cannot frame falls back to a rebuild", asyn
     "generate",
   ]);
   assert.equal(h.mock.droppedConnections, 1);
+  assert.deepEqual(updates.filter((update) => update.type === "phase").map((update) => update.phase), [
+    "connecting", "preparing", "connecting", "preparing",
+  ]);
 });
 
 test("an unreadable record that stays unreadable surfaces a deterministic error", async (t) => {

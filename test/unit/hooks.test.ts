@@ -169,6 +169,70 @@ test("the extension registers the xenolith provider with the engine facts", asyn
   });
 });
 
+test("the provider displays measured progress through Pi's working message only in TUI mode", async () => {
+  await withExtension(async ({ mock, registered, stream, ctx }) => {
+    const lines: (string | undefined)[] = [];
+    const uiContext = {
+      ...ctx,
+      mode: "tui",
+      sessionManager: { getSessionId: () => SESSION, getSessionDir: () => mock.directory },
+      ui: { setWorkingMessage: (line: string | undefined) => lines.push(line), notify: () => undefined },
+    } as unknown as ExtensionContext;
+    await emit(registered, "session_start", {}, uiContext);
+    mock.turns.push({ text: "answer", progressEvents: [
+      { event: "inference_progress", phase: "prefill", state: "running", tokens: 0, total: 200, elapsed_ms: 0 },
+      { event: "inference_progress", phase: "prefill", state: "running", tokens: 100, total: 200, elapsed_ms: 1000 },
+      { event: "inference_progress", phase: "prefill", state: "finished", tokens: 200, total: 200, elapsed_ms: 2000 },
+      { event: "inference_progress", phase: "decode", state: "running", tokens: 0, elapsed_ms: 0 },
+      { event: "inference_progress", phase: "decode", state: "running", tokens: 20, elapsed_ms: 1000 },
+    ], finalProgressEvents: [
+      { event: "inference_progress", phase: "decode", state: "finished", tokens: 21, elapsed_ms: 1050 },
+    ] });
+    await stream(context([user("hello")]), { sessionId: SESSION });
+    assert.ok(lines.some((line) => line?.includes("50% · 100/200 tok · 100.0 tok/s")));
+    assert.ok(lines.some((line) => line?.includes("20 tok · 20.0 tok/s")));
+    assert.ok(lines.some((line) => line?.includes("Finalizing…")));
+    assert.equal(lines.at(-1), undefined);
+
+    await emit(registered, "session_start", {}, { ...uiContext, mode: "print" });
+    lines.length = 0;
+    mock.turns.push({ text: "plain" });
+    await stream(context([user("plain")]));
+    assert.deepEqual(lines, []);
+    await emit(registered, "session_shutdown", {}, uiContext);
+  });
+});
+
+for (const hook of ["agent_end", "model_select", "session_shutdown"] as const) {
+  test(`the ${hook} hook clears the progress line and ignores later stream events`, async () => {
+    await withExtension(async ({ mock, registered, stream, ctx }) => {
+      const lines: (string | undefined)[] = [];
+      const uiContext = {
+        ...ctx,
+        mode: "tui",
+        sessionManager: { getSessionId: () => SESSION, getSessionDir: () => mock.directory },
+        ui: { setWorkingMessage: (line: string | undefined) => lines.push(line), notify: () => undefined },
+      } as unknown as ExtensionContext;
+      await emit(registered, "session_start", {}, uiContext);
+      mock.turns.push({ text: "abcdef", chunk: 1, delayMs: 5 });
+      let clearedAt: number | undefined;
+      await stream(context([user("hello")]), {
+        sessionId: SESSION,
+        onProviderStreamEvent: (raw) => {
+          if ((raw as { event: string }).event === "text_delta" && clearedAt === undefined) {
+            void emit(registered, hook, {}, uiContext);
+            clearedAt = lines.length;
+          }
+        },
+      });
+      assert.ok(clearedAt !== undefined);
+      assert.equal(lines.at(-1), undefined);
+      assert.equal(lines.length, clearedAt);
+      await emit(registered, "session_shutdown", {}, uiContext);
+    });
+  });
+}
+
 test("session_before_compact summarizes on the live wire session at zero prefill", async () => {
   await withExtension(async ({ mock, registered, stream, ctx }) => {
     mock.turns.push({ text: "answer", stop: "stop" }, { text: "## Goal\nship it", stop: "stop" });

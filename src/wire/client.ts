@@ -3,6 +3,7 @@ import { mkdirSync } from "node:fs";
 import { connect, type Socket } from "node:net";
 import { dirname } from "node:path";
 import type { XenolithSettings } from "../config.js";
+import type { ConnectionPhase } from "../activity.js";
 import {
   isWireEvent,
   isWireResponse,
@@ -200,6 +201,7 @@ export interface ConnectOptions {
   settings: XenolithSettings;
   attempts?: number;
   baseDelayMs?: number;
+  onStatus?: (phase: ConnectionPhase) => void;
 }
 
 function sleep(ms: number): Promise<void> {
@@ -283,16 +285,22 @@ export async function openConnection(options: ConnectOptions): Promise<WireConne
   const baseDelayMs = options.baseDelayMs ?? 100;
   let diagnostics: SpawnDiagnostics | undefined;
   let lastError: Error = new WireError("io_error", "wire service unreachable");
+  options.onStatus?.("connecting");
   for (let attempt = 0; attempt < attempts; attempt++) {
     try {
-      return new WireConnection(await connectOnce(settings.socket));
+      const connection = new WireConnection(await connectOnce(settings.socket));
+      options.onStatus?.("ready");
+      return connection;
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
       if (!settings.spawn) break;
       // Retry the socket once after exit: another concurrent launcher may
       // have won the engine lock and started a reachable service.
       if (diagnostics?.spawnError || diagnostics?.exited) break;
-      if (!diagnostics) diagnostics = spawnService(settings);
+      if (!diagnostics) {
+        options.onStatus?.("starting");
+        diagnostics = spawnService(settings);
+      }
       await sleep(Math.min(baseDelayMs * 2 ** Math.min(attempt, 5), 2000));
     }
   }
