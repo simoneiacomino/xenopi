@@ -349,6 +349,60 @@ test("a spawn that cannot start at all reports the spawn failure", async (t) => 
   );
 });
 
+test("spawn forwards context unchanged and preserves the engine's rejection", async (t) => {
+  const directory = mkdtempSync(join(tmpdir(), "xenopi-spawn-context-"));
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  const bin = join(directory, "fake-xenolith");
+  writeFileSync(bin, '#!/bin/sh\nprintf "%s\\n" "$@" >&2\necho "engine rejected the requested context" >&2\nexit 1\n');
+  chmodSync(bin, 0o755);
+  for (const capacity of [undefined, 4097, 300000]) {
+    await assert.rejects(
+      () => openConnection({
+        settings: { ...settingsFor(join(directory, "wire.sock")), bin, model: "/models/fake.gguf", spawn: true, context: capacity },
+        attempts: 10,
+        baseDelayMs: 20,
+      }),
+      (error: Error) => {
+        assert.match(error.message, /engine rejected the requested context/);
+        if (capacity === undefined) assert.doesNotMatch(error.message, /--ctx/);
+        else assert.ok(error.message.includes(`--ctx\n${capacity}\n`));
+        return true;
+      },
+    );
+  }
+});
+
+test("a running service's context wins and a mismatch reaches the UI once", async (t) => {
+  const mock = await MockWireServer.start({ contextWindow: 8192 });
+  const agentDir = mkdtempSync(join(tmpdir(), "xenopi-context-notice-"));
+  t.after(async () => {
+    await mock.stop();
+    rmSync(mock.directory, { recursive: true, force: true });
+    rmSync(agentDir, { recursive: true, force: true });
+  });
+  for (const requested of [undefined, 8192, 4097, 300000]) {
+    const logs: string[] = [];
+    const notices: string[] = [];
+    const adapter = new XenolithAdapter({ agentDir, settings: { ...settingsFor(mock.socketPath), context: requested }, log: (message) => logs.push(message) });
+    try {
+      assert.equal((await adapter.describe()).context_window, 8192);
+      adapter.setNoticeSink((message) => notices.push(message));
+      assert.equal((await adapter.describe()).context_window, 8192);
+      adapter.setNoticeSink((message) => notices.push(message));
+      const mismatch = requested !== undefined && requested !== 8192;
+      assert.equal(notices.length, mismatch ? 1 : 0);
+      assert.equal(logs.length, mismatch ? 1 : 0);
+      if (mismatch) {
+        assert.match(notices[0]!, new RegExp(`requested a context capacity of ${requested} tokens`));
+        assert.match(notices[0]!, /Using 8192 tokens/);
+        assert.match(notices[0]!, /Restart Xenolith/);
+      }
+    } finally {
+      adapter.close();
+    }
+  }
+});
+
 test("the adapter discovers a service model without built-in model assumptions", async (t) => {
   const mock = await MockWireServer.start({ model: "some-other-model", contextWindow: 8192 });
   const agentDir = mkdtempSync(join(tmpdir(), "xenopi-describe-"));
@@ -410,4 +464,46 @@ test("a transcript near the window rebuilds and reconciles in one frame each (3.
   assert.equal(second.message.stopReason, "stop");
   assert.deepEqual(h.mock.opNames(), ["describe", "open", "history", "append", "generate"]);
   assert.equal(h.mock.droppedConnections, 0);
+});
+
+test("a saved conversation rejected by a smaller engine reports counts without losing its binding", async (t) => {
+  const h = await harness({ contextWindow: 4096 });
+  t.after(() => h.dispose());
+  const original = context([user("x".repeat(600))]);
+  h.mock.turns.push({ text: "saved answer", stop: "stop" });
+  const first = await collect(h.adapter, original, { sessionId: SESSION });
+  assert.equal(first.message.stopReason, "stop");
+  const binding = h.adapter.bindingStore.get(SESSION);
+  assert.ok(binding);
+  const stored = await h.adapter.liveSession(SESSION)!.connection.request({ op: "history" });
+  h.adapter.close();
+  h.mock.contextWindow = 64;
+  h.mock.reset();
+
+  const reopened = h.newAdapter();
+  await reopened.checkSavedSession(SESSION);
+  assert.equal(h.notices.length, 1);
+  assert.match(h.notices[0] ?? "", /cannot open this conversation: it contains \d+ tokens/);
+  assert.match(h.notices[0] ?? "", /context capacity is 64 tokens/);
+  assert.match(h.notices[0] ?? "", /saved conversation is unchanged/);
+  assert.equal(reopened.bindingStore.get(SESSION), binding);
+  assert.equal(reopened.liveSession(SESSION), undefined);
+  const result = await collect(reopened, original, { sessionId: SESSION });
+  assert.equal(result.message.stopReason, "error");
+  assert.match(result.message.errorMessage ?? "", /context_length_exceeded/);
+  assert.equal(h.notices.length, 1, "startup and first turn share the same notice");
+  assert.ok(h.mock.ops.every((op) => op["op"] === "describe" || op["op"] === "open"));
+  assert.equal(reopened.bindingStore.get(SESSION), binding);
+
+  h.mock.contextWindow = 4096;
+  const restored = h.newAdapter();
+  await restored.checkSavedSession(SESSION);
+  assert.equal(restored.bindingStore.get(SESSION), binding);
+  const connection = await openConnection({ settings: settingsFor(h.mock.socketPath) });
+  try {
+    await connection.request({ op: "open", session: binding });
+    assert.deepEqual(await connection.request({ op: "history" }), stored);
+  } finally {
+    connection.close();
+  }
 });

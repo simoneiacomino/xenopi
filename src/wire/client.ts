@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import { connect, type Socket } from "node:net";
 import { dirname } from "node:path";
-import type { XenolithSettings } from "../config.js";
+import { validateContextCapacity, type XenolithSettings } from "../config.js";
 import type { ConnectionPhase } from "../activity.js";
 import {
   isWireEvent,
@@ -248,6 +248,7 @@ export function spawnService(settings: XenolithSettings): SpawnDiagnostics {
     "--idle-shutdown",
     String(settings.idleShutdownMinutes),
   ];
+  if (settings.context !== undefined) args.push("--ctx", String(validateContextCapacity(settings.context)));
   if (settings.stateDir) args.push("--state", settings.stateDir);
   if (settings.cacheDir) args.push("--cache", settings.cacheDir);
   // An explicit --socket path makes its parent the caller's responsibility.

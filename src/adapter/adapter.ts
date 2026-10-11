@@ -86,6 +86,8 @@ export class XenolithAdapter {
   private readonly log: (message: string) => void;
   private description: WireDescribe | undefined;
   private kvstoreDisabled = false;
+  private readonly noticedOpenOverflows = new Set<string>();
+  private pendingContextNotice: string | undefined;
   private onNotice: ((message: string, level: "info" | "warning") => void) | undefined;
   private activitySink: ActivitySink | undefined;
   private activityId = 0;
@@ -102,6 +104,10 @@ export class XenolithAdapter {
   /** Route user-facing notices to a UI sink (set once pi's ctx.ui is available). */
   setNoticeSink(sink: ((message: string, level: "info" | "warning") => void) | undefined): void {
     this.onNotice = sink;
+    if (sink && this.pendingContextNotice) {
+      sink(this.pendingContextNotice, "warning");
+      this.pendingContextNotice = undefined;
+    }
   }
 
   setActivitySink(sink: ActivitySink | undefined): void {
@@ -310,6 +316,13 @@ export class XenolithAdapter {
       throw new WireError("invalid_request", "Xenolith model capabilities changed; reload XenoPi before continuing");
     }
     this.description = info;
+    if (!previous && this.settings.context !== undefined && this.settings.context !== info.context_window) {
+      const message = `requested a context capacity of ${this.settings.context} tokens, but the running Xenolith service provides ${info.context_window}. ` +
+        `Using ${info.context_window} tokens. Restart Xenolith with --ctx ${this.settings.context} to apply the requested capacity.`;
+      this.notice(message);
+      // Provider discovery happens before Pi attaches its UI notification sink.
+      if (!this.onNotice) this.pendingContextNotice = message;
+    }
     if (!info.kvstore && !this.kvstoreDisabled) {
       this.notice("the xenolith snapshot store is disabled (see the engine log); sessions will not resume from cache");
     }
@@ -335,6 +348,36 @@ export class XenolithAdapter {
     this.log(
       `xenopi: context_length_exceeded: prompt of ${String(tokens ?? "?")} tokens against a window of ${String(context ?? "?")} tokens; XenoPi's overflow recovery takes over`,
     );
+  }
+
+  private reportOpenOverflow(session: string, error: WireError): void {
+    const { tokens, context } = error.detail;
+    const key = `${session}:${tokens}:${context}`;
+    if (this.noticedOpenOverflows.has(key)) return;
+    this.noticedOpenOverflows.add(key);
+    this.notice(
+      `cannot open this conversation: it contains ${String(tokens ?? "?")} tokens, ` +
+      `but Xenolith's context capacity is ${String(context ?? "?")} tokens. ` +
+      "Restart Xenolith with a larger --ctx. The saved conversation is unchanged.",
+    );
+  }
+
+  /** Check an existing binding when Pi opens a session, before its first turn. */
+  async checkSavedSession(piSession: string): Promise<void> {
+    const bound = this.bindings.get(piSession);
+    if (!bound || this.sessions.has(piSession)) return;
+    const connection = await this.connect();
+    try {
+      await connection.request({ op: "open", session: bound });
+    } catch (error) {
+      if (error instanceof WireError && error.code === "context_length_exceeded") {
+        this.reportOpenOverflow(bound, error);
+      } else if (!(error instanceof WireError) || error.code !== "session_not_found") {
+        throw error;
+      }
+    } finally {
+      connection.close();
+    }
   }
 
   private debug(message: string): void {
@@ -370,6 +413,8 @@ export class XenolithAdapter {
         this.sessions.set(piSession, state);
         return state;
       } catch (error) {
+        if (error instanceof WireError && error.code === "context_length_exceeded")
+          this.reportOpenOverflow(bound, error);
         if (!(error instanceof WireError) || error.code !== "session_not_found") {
           connection.close();
           throw error;

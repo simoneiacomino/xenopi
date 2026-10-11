@@ -170,7 +170,9 @@ export default async function xenolithProvider(pi: ExtensionAPI): Promise<void> 
     display = ctx.mode === "tui" ? new InferenceDisplay((line) => ctx.ui.setWorkingMessage(line)) : undefined;
     adapter.setActivitySink(display?.update);
     adapter.setNoticeSink((message, level) => ctx.ui.notify(`xenopi: ${message}`, level));
-    void guard(async () => {
+    return guard(async () => {
+      const piSession = ctx.sessionManager.getSessionId();
+      if (piSession) await adapter.checkSavedSession(piSession);
       await adapter.sweep(ctx.sessionManager.getSessionDir());
     });
   });

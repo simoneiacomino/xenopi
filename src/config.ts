@@ -8,6 +8,8 @@ export interface XenolithSettings {
   socket: string;
   stateDir: string | undefined;
   cacheDir: string | undefined;
+  /** Requested capacity when spawning; describe remains authoritative. */
+  context?: number;
   idleShutdownMinutes: number;
   spawn: boolean;
 }
@@ -18,6 +20,7 @@ export interface XenolithSettingsFile {
   socket?: string;
   stateDir?: string;
   cacheDir?: string;
+  context?: number;
   idleShutdownMinutes?: number;
   spawn?: boolean;
 }
@@ -72,15 +75,28 @@ export function resolveXenolithSettings(
   const socketEnv = env["XENOLITH_SOCKET"];
   const idleEnv = env["XENOLITH_IDLE_SHUTDOWN"];
   const idleParsed = idleEnv !== undefined ? Number(idleEnv) : Number.NaN;
+  const contextEnv = env["XENOLITH_CONTEXT"];
+  const context = contextEnv !== undefined
+    ? validateContextCapacity(/^[0-9]+$/.test(contextEnv) ? Number(contextEnv) : Number.NaN, "XENOLITH_CONTEXT")
+    : file.context === undefined ? undefined : validateContextCapacity(file.context, '"context" in xenolith.json');
   return {
     bin: env["XENOLITH_BIN"] ?? file.bin ?? "xenolith",
     model: env["XENOLITH_MODEL"] ?? file.model,
     socket: socketEnv && socketEnv.length > 0 ? socketEnv : (file.socket ?? defaultSocketPath(env)),
     stateDir: env["XENOLITH_STATE_DIR"] ?? file.stateDir,
     cacheDir: env["XENOLITH_CACHE_DIR"] ?? file.cacheDir,
+    context,
     idleShutdownMinutes: Number.isFinite(idleParsed) ? idleParsed : (file.idleShutdownMinutes ?? 30),
     spawn: env["XENOLITH_NO_SPAWN"] === "1" ? false : (file.spawn ?? true),
   };
+}
+
+/** Model and implementation limits belong to the engine, not the client. */
+export function validateContextCapacity(value: unknown, source = "context"): number {
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value <= 0) {
+    throw new Error(`${source} must be a positive safe integer (token count)`);
+  }
+  return value;
 }
 
 export function bindingsPath(agentDir: string): string {

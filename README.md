@@ -21,9 +21,30 @@ XenoPi connects to or starts the Xenolith service when a session starts. The mod
 To use an already running service, set `XENOLITH_SOCKET=/path/to/wire.sock` and `XENOLITH_NO_SPAWN=1`.
 
 The provider discovers the model ID, context window, output limit and reasoning capabilities through `describe`.
+When a saved wire conversation exceeds the service's current context capacity,
+XenoPi reports its token count and the limit as the Pi session opens. The wire
+open is rejected; its binding and saved history are preserved. Restart Xenolith
+with a sufficient `--ctx` to reopen it. XenoPi also handles this error on the
+first provider request, without silently creating a replacement conversation.
 XenoPi targets wire protocol v1, which exposes one served model and text input. It does not contain a model catalog or model-specific schema transformations.
 The default Xenolith model is refreshed from the service at launch. A default provider chosen by the user is preserved.
 `--help`, `--version`, and the `mcp` configuration commands do not require a running engine.
+
+## Engine configuration
+
+Set `context` in `~/.xenopi/agent/xenolith.json` (under `XENOPI_DIR` when set),
+or override it with `XENOLITH_CONTEXT`, to request a context capacity in tokens:
+
+```json
+{"context": 32768}
+```
+
+The value must be a positive integer. When starting Xenolith, XenoPi passes it
+as `--ctx`; the engine validates the supported range for its model. Omit it to
+use the engine's default. Startup errors include the engine's diagnostic.
+For an already running service, `describe` supplies the actual capacity. If it
+differs from the requested value, XenoPi warns and uses the service's capacity;
+applying a different value requires restarting Xenolith.
 
 # MCP and Codemode
 

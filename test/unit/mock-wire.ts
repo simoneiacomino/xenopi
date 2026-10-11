@@ -278,8 +278,12 @@ export class MockWireServer {
           this.fail(conn, "session_not_found", "no such session");
           return;
         }
-        conn.session = session;
         const total = this.totalTokens(session);
+        if (total > this.contextWindow) {
+          this.overflow(conn, total);
+          return;
+        }
+        conn.session = session;
         this.send(conn, {
           ok: true,
           tokens: total,
