@@ -46,7 +46,7 @@ export function mapStop(stop: WireStop): Extract<StopReason, "stop" | "length" |
 }
 
 export class TurnBuilder {
-  readonly message: AssistantMessage;
+  message: AssistantMessage;
   private textIndex = -1;
   private textBuffer = "";
   private thinkingIndex = -1;
@@ -172,6 +172,7 @@ export class TurnBuilder {
   done(stop: WireStop, usage: WireUsage): void {
     this.closeThinking();
     this.closeText();
+    this.discardIncompleteToolCalls();
     this.message.usage = mapUsage(usage);
     this.message.rawStopReason = stop;
     const reason = mapStop(stop);
@@ -183,11 +184,25 @@ export class TurnBuilder {
   fail(reason: "error" | "aborted", errorMessage: string, usage?: WireUsage): void {
     this.closeThinking();
     this.closeText();
+    this.discardIncompleteToolCalls();
     if (usage) this.message.usage = mapUsage(usage);
     this.message.stopReason = reason;
     this.message.errorMessage = errorMessage;
     this.stream.push({ type: "error", reason, error: this.message });
     this.stream.end(this.message);
+  }
+
+  private discardIncompleteToolCalls(): void {
+    if (this.toolCallIndices.size === 0) return;
+    const incomplete = new Set(this.toolCallIndices.values());
+    // Xenolith discards unfinished calls. Keep them out of Pi's final message,
+    // where even an empty argument object could otherwise execute a tool.
+    // Preserve the partial message and indices referenced by queued events.
+    this.message = {
+      ...this.message,
+      content: this.message.content.filter((_, index) => !incomplete.has(index)),
+    };
+    this.toolCallIndices.clear();
   }
 
   get text(): string {
