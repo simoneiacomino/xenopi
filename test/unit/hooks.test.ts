@@ -22,7 +22,8 @@ import xenolithProvider from "../../src/extensions/provider.js";
 import { assistantFrom, collect, context, harness, model, user } from "./harness.js";
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import type { AssistantMessage } from "@earendil-works/pi-ai";
-import { MockWireServer } from "./mock-wire.js";
+import { MockWireServer, type MockWireOptions } from "./mock-wire.js";
+import { photo, vision } from "./vision-fixture.js";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -105,8 +106,9 @@ async function withExtension<T>(
     stream: (ctx: Context, options?: SimpleStreamOptions) => Promise<AssistantMessageEvent[]>;
     ctx: ExtensionContext;
   }) => Promise<T>,
+  options: MockWireOptions = {},
 ): Promise<T> {
-  const mock = await MockWireServer.start();
+  const mock = await MockWireServer.start(options);
   const agentDir = mkdtempSync(join(tmpdir(), "xenopi-hooks-"));
   const previous = { ...process.env };
   process.env["PI_CODING_AGENT_DIR"] = agentDir;
@@ -313,6 +315,17 @@ test("session_before_compact degrades when there is no live wire session", async
     assert.equal(result, undefined);
     assert.deepEqual(mock.opNames(), []);
   });
+});
+
+test("a split-turn visual prefix is summarized even without messagesToSummarize or a live binding", async () => {
+  await withExtension(async ({ mock, registered, ctx }) => {
+    mock.turns.push({ text: "The image shows a cat." });
+    const event = compactionEvent([], { turnPrefixMessages: [photo()] });
+    const result = await emit(registered, "session_before_compact", event, ctx) as SessionBeforeCompactResult;
+    assert.match(result.compaction?.summary ?? "", /cat/);
+    assert.deepEqual(mock.opNames(), ["describe", "ephemeral"]);
+    assert.ok((mock.ops[1]?.messages as { image?: unknown }[]).some((message) => message.image));
+  }, { vision });
 });
 
 test("a failed summary generation leaves the shadow dirty so the next turn rebuilds", async () => {

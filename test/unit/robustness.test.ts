@@ -319,7 +319,7 @@ test("a failing spawn reports the binary's stderr in the connect error", async (
           idleShutdownMinutes: 30,
           spawn: true,
         },
-        attempts: 2,
+        attempts: 6,
         baseDelayMs: 50,
       }),
     /another process holds the engine lock/,

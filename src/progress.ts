@@ -1,7 +1,7 @@
 import type { ActivitySink } from "./activity.js";
 import type { WireEvent, WireInferenceMeasurement } from "./wire/protocol.js";
 
-type Phase = "connecting" | "starting" | "preparing" | "prefill" | "decode" | "finalizing";
+type Phase = "connecting" | "starting" | "preparing" | "preparing_image" | "prefill" | "decode" | "finalizing";
 
 interface Sample {
   tokens: number;
@@ -155,6 +155,7 @@ export class InferenceDisplay {
     } else {
       const label = this.phase === "starting" ? "Starting Xenolith" :
         this.phase === "connecting" ? "Connecting to Xenolith" :
+        this.phase === "preparing_image" ? "Preparing image" :
         this.phase === "finalizing" ? "Finalizing" :
         this.phaseFinished ? "Preparing" : "Preparing prompt";
       line = `${label}… ${elapsed.toFixed(1)} s`;

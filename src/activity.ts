@@ -4,7 +4,7 @@ export type ConnectionPhase = "connecting" | "starting" | "ready";
 
 export type ActivityUpdate =
   | { type: "begin" }
-  | { type: "phase"; phase: Exclude<ConnectionPhase, "ready"> | "preparing" }
+  | { type: "phase"; phase: Exclude<ConnectionPhase, "ready"> | "preparing" | "preparing_image" }
   | { type: "event"; event: WireEvent }
   | { type: "end" };
 

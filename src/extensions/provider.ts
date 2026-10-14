@@ -1,6 +1,6 @@
 import type { Api, Model, TranscriptContext, Message, SimpleStreamOptions } from "@earendil-works/pi-ai";
 import type { AssistantMessageEventStream } from "@earendil-works/pi-ai";
-import { convertToLlm, type ExtensionAPI, type ProviderModelConfig } from "@earendil-works/pi-coding-agent";
+import { convertToLlm, prepareBranchEntries, type ExtensionAPI, type ProviderModelConfig } from "@earendil-works/pi-coding-agent";
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import { XenolithAdapter } from "../adapter/adapter.js";
 import { translateContext } from "../adapter/translate.js";
@@ -100,9 +100,9 @@ export function summaryMaxTokens(reserveTokens: number, modelMaxTokens: number):
   return Number.isFinite(budget) && budget > 0 ? budget : 1024;
 }
 
-export function compactionPrefixKeys(messages: AgentMessage[]): string[] {
+export function compactionPrefixKeys(messages: AgentMessage[], imageBudget = 280): string[] {
   const llm: Message[] = convertToLlm(messages);
-  return translateContext({ messages: llm }).messages.map((entry) => entry.key);
+  return translateContext({ messages: llm }, imageBudget).messages.map((entry) => entry.key);
 }
 
 export function buildSummaryPrompt(previousSummary?: string, customInstructions?: string): string {
@@ -124,8 +124,8 @@ export function providerModel(info: WireDescribe): ChatModelConfig {
     name: `${info.model} (Xenolith)`,
     reasoning: info.reasoning.efforts.length > 0,
     thinkingLevelMap,
-    // Wire protocol v1 carries text only, regardless of the model behind it.
-    input: ["text"],
+    input: info.vision ? ["text", "image"] : ["text"],
+    ...(info.vision ? { inputLimits: { images: { maxPerMessage: 1 } } } : {}),
     cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
     contextWindow: info.context_window,
     maxTokens: info.max_output,
@@ -185,10 +185,23 @@ export default async function xenolithProvider(pi: ExtensionAPI): Promise<void> 
       const piSession = ctx.sessionManager.getSessionId();
       const model = ctx.model;
       if (!piSession || !model || model.provider !== PROVIDER_ID) return undefined;
-      const expected = compactionPrefixKeys(event.preparation.messagesToSummarize);
-      if (expected.length === 0) return undefined;
+      const messages = convertToLlm([...event.preparation.messagesToSummarize, ...event.preparation.turnPrefixMessages]);
+      const hasImages = messages.some((message) => Array.isArray(message.content) && message.content.some((item) => item.type === "image"));
+      const expected = hasImages ? undefined : compactionPrefixKeys(event.preparation.messagesToSummarize, adapter.imageBudget);
+      if (expected?.length === 0) return undefined;
       const prompt = buildSummaryPrompt(event.preparation.previousSummary, event.customInstructions);
-      const summary = await adapter.summarize(
+      // Pi's generic summary serializes images as placeholders. Summarize the
+      // actual visual prefix instead, including after reopening or forking.
+      let summary;
+      if (hasImages) {
+        try {
+          summary = await summarizeImages(adapter, model, messages, prompt,
+            summaryMaxTokens(event.preparation.settings.reserveTokens, model.maxTokens), event.signal);
+        } catch (error) {
+          ctx.ui.notify(`xenopi: image compaction cancelled: ${error instanceof Error ? error.message : String(error)}`, "warning");
+          return { cancel: true };
+        }
+      } else summary = await adapter.summarize(
         piSession,
         prompt,
         { max_tokens: summaryMaxTokens(event.preparation.settings.reserveTokens, model.maxTokens) },
@@ -196,7 +209,7 @@ export default async function xenolithProvider(pi: ExtensionAPI): Promise<void> 
         event.signal,
         expected,
       );
-      if (!summary || summary.text.trim().length === 0) return undefined;
+      if (!summary || summary.text.trim().length === 0) return hasImages ? { cancel: true } : undefined;
       return {
         compaction: {
           summary: summary.text,
@@ -215,12 +228,28 @@ export default async function xenolithProvider(pi: ExtensionAPI): Promise<void> 
     });
   });
 
-  pi.on("session_before_tree", (_event, ctx) => {
-    void guard(async () => {
+  pi.on("session_before_tree", async (event, ctx) => {
+    return guard(async () => {
       const piSession = ctx.sessionManager.getSessionId();
       if (piSession) await adapter.checkpoint(piSession);
+      if (!event.preparation.userWantsSummary || !ctx.model || ctx.model.provider !== PROVIDER_ID) return undefined;
+      const preparation = prepareBranchEntries(event.preparation.entriesToSummarize);
+      const messages = convertToLlm(preparation.messages);
+      if (!messages.some((message) => Array.isArray(message.content) && message.content.some((item) => item.type === "image"))) return undefined;
+      const prompt = event.preparation.replaceInstructions && event.preparation.customInstructions
+        ? event.preparation.customInstructions : buildSummaryPrompt(undefined, event.preparation.customInstructions);
+      try {
+        const result = await summarizeImages(adapter, ctx.model, messages, prompt, summaryMaxTokens(16384, ctx.model.maxTokens), event.signal);
+        if (!result.text.trim()) return { cancel: true };
+        return { summary: { summary: result.text, usage: result.usage, details: {
+          readFiles: [...preparation.fileOps.read],
+          modifiedFiles: [...new Set([...preparation.fileOps.written, ...preparation.fileOps.edited])],
+        } } };
+      } catch (error) {
+        ctx.ui.notify(`xenopi: image branch summary cancelled: ${error instanceof Error ? error.message : String(error)}`, "warning");
+        return { cancel: true };
+      }
     });
-    return undefined;
   });
 
   pi.on("session_shutdown", () => {
@@ -231,6 +260,16 @@ export default async function xenolithProvider(pi: ExtensionAPI): Promise<void> 
       liveAdapters.delete(adapter);
     });
   });
+}
+
+async function summarizeImages(adapter: XenolithAdapter, model: Model<Api>, messages: Message[], prompt: string, maxTokens: number, signal: AbortSignal) {
+  const stream = adapter.streamSimple(model, {
+    systemPrompt: "Summarize the supplied conversation, including information visible in its images. Do not execute tools.",
+    messages: [...messages, { role: "user", content: prompt, timestamp: Date.now() }],
+  }, { maxTokens, signal, cacheRetention: "none" });
+  const result = await stream.result();
+  if (result.stopReason !== "stop") throw new Error(result.errorMessage ?? "visual compaction did not complete");
+  return { text: result.content.filter((item) => item.type === "text").map((item) => item.text).join(""), usage: result.usage };
 }
 
 async function guard<T>(body: () => Promise<T>): Promise<T | undefined> {

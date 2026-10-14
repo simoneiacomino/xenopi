@@ -35,6 +35,7 @@ import {
   type TranslatedContext,
 } from "./translate.js";
 import { TurnBuilder } from "./turn.js";
+import { decodeImageData, imageFormat, imageIdentity, validateHistoryImage } from "../wire/images.js";
 import type { ActivityReporter, ActivitySink, ConnectionPhase } from "../activity.js";
 
 export interface ShadowEntry {
@@ -56,6 +57,8 @@ export interface SessionState {
   turn: Promise<void>;
   /** Checkpoint reasons already surfaced to the user for this session. */
   noticed: Set<string>;
+  /** Media IDs confirmed in this bound conversation, including retained branches. */
+  imageIds: Set<string>;
 }
 
 export type Classification =
@@ -179,6 +182,10 @@ export class XenolithAdapter {
     return this.sessions.get(piSession);
   }
 
+  get imageBudget(): number {
+    return this.settings.imageBudget ?? this.description?.vision?.default_budget ?? 280;
+  }
+
   close(): void {
     for (const state of this.sessions.values()) state.connection.close();
     this.sessions.clear();
@@ -214,7 +221,8 @@ export class XenolithAdapter {
       }
       context = replacement as Context;
     }
-    const translated = translateContext(context);
+    checkAbort(options?.signal);
+    const translated = translateContext(context, this.imageBudget);
     const params = genParams(options);
     if (this.isOneOff(options)) {
       this.onClassification?.("ephemeral");
@@ -226,7 +234,10 @@ export class XenolithAdapter {
     this.validateGeneration(builder.model, params);
     await this.exclusive(state, async () => {
       try {
-        await this.synchronize(state, translated, report);
+        checkAbort(options?.signal);
+        this.prepareImages(translated);
+        await this.synchronize(state, translated, report, options?.signal);
+        checkAbort(options?.signal);
       } catch (error) {
         state.dirty = true;
         throw error;
@@ -258,6 +269,8 @@ export class XenolithAdapter {
   ): Promise<void> {
     const connection = await this.connect(undefined, report);
     try {
+      checkAbort(options?.signal);
+      this.prepareImages(translated);
       this.validateGeneration(builder.model, params);
       const request = ephemeralRequest(
         translated.system,
@@ -265,6 +278,7 @@ export class XenolithAdapter {
         translated.messages.map((entry) => entry.message),
         params,
       );
+      this.reportImagePreparation(translated, report);
       await this.consume(connection, connection.stream(request), builder, options, undefined, report);
     } finally {
       connection.close();
@@ -312,7 +326,9 @@ export class XenolithAdapter {
     const info = await describeConnection(connection);
     const previous = this.description;
     if (previous && (previous.model !== info.model || previous.context_window !== info.context_window ||
-        previous.max_output !== info.max_output || stableStringify(previous.reasoning) !== stableStringify(info.reasoning))) {
+        previous.max_output !== info.max_output || previous.protocol !== info.protocol ||
+        stableStringify(previous.vision) !== stableStringify(info.vision) ||
+        stableStringify(previous.reasoning) !== stableStringify(info.reasoning))) {
       throw new WireError("invalid_request", "Xenolith model capabilities changed; reload XenoPi before continuing");
     }
     this.description = info;
@@ -342,6 +358,31 @@ export class XenolithAdapter {
         throw new WireError("invalid_request", "the Xenolith service does not advertise reasoning token budgets");
       }
     }
+  }
+
+  private prepareImages(translated: TranslatedContext): void {
+    const vision = this.description?.vision;
+    let mediaBytes = 0;
+    for (const entry of translated.messages) {
+      const image = entry.message.image;
+      if (!image) continue;
+      if (!vision) throw new WireError("invalid_request", "the Xenolith service accepts text only; start it with the existing --mmproj file to enable images");
+      if (image.data === undefined) throw new WireError("invalid_request", "Pi must retain inline image bytes for session reconstruction");
+      const bytes = decodeImageData(image.data, vision.max_bytes);
+      if (!vision.formats.includes(imageFormat(bytes))) throw new WireError("invalid_request", "the Xenolith service does not support this image format");
+      image.budget = this.imageBudget;
+      if (!vision.budgets.includes(image.budget)) throw new WireError("invalid_request", "the Xenolith service does not support the configured image budget");
+      entry.key = keyOf(entry.message);
+      // Each visual span retains its source, even when media IDs are shared.
+      mediaBytes += bytes.length;
+    }
+    if (vision && mediaBytes > vision.max_context_media_bytes) {
+      throw new WireError("invalid_request", "images exceed the Xenolith context media size limit");
+    }
+  }
+
+  private reportImagePreparation(translated: TranslatedContext, report?: ActivityReporter): void {
+    if (translated.messages.some((entry) => entry.message.image)) report?.({ type: "phase", phase: "preparing_image" });
   }
 
   private logOverflow(tokens: number | undefined, context: number | undefined): void {
@@ -386,9 +427,16 @@ export class XenolithAdapter {
 
   private async openSession(piSession: string, translated: TranslatedContext, report?: ActivityReporter): Promise<SessionState> {
     const connection = await this.connect(undefined, report);
+    try {
+      this.prepareImages(translated);
+    } catch (error) {
+      connection.close();
+      throw error;
+    }
     const bound = this.bindings.get(piSession);
     if (bound) {
       try {
+        this.reportImagePreparation(translated, report);
         const opened = await connection.request({ op: "open", session: bound });
         this.debug(`open: ${JSON.stringify(opened).slice(0, 400)}`);
         if (opened["zero_prefill"] === false && Number(opened["tokens"]) > 0) {
@@ -409,6 +457,7 @@ export class XenolithAdapter {
           loaded: false,
           turn: Promise.resolve(),
           noticed: new Set(),
+          imageIds: new Set(),
         };
         this.sessions.set(piSession, state);
         return state;
@@ -440,6 +489,7 @@ export class XenolithAdapter {
       loaded: true,
       turn: Promise.resolve(),
       noticed: new Set(),
+      imageIds: new Set(),
     };
     this.sessions.set(piSession, state);
     return state;
@@ -468,6 +518,7 @@ export class XenolithAdapter {
           continue;
         }
         const { message, wireCallIds } = fromHistory(item);
+        if (message.image) state.imageIds.add(imageIdentity(message.image).id);
         entries.push({ key: keyOf(message), marker: item.marker, wireCallIds });
       }
     }
@@ -491,15 +542,16 @@ export class XenolithAdapter {
     }
   }
 
-  private async rebuild(state: SessionState, translated: TranslatedContext): Promise<void> {
+  private async rebuild(state: SessionState, translated: TranslatedContext, report?: ActivityReporter): Promise<void> {
     this.onClassification?.("rebuild");
     state.dirty = true;
+    this.reportImagePreparation(translated, report);
     try {
       await state.connection.request(
         rebuildRequest(
           translated.system,
           translated.tools,
-          translated.messages.map((entry) => entry.message),
+          translated.messages.map((entry) => this.referenceImage(state, entry.message)),
         ),
       );
     } catch (error) {
@@ -529,6 +581,12 @@ export class XenolithAdapter {
     this.syncCallIds(state, translated, state.entries.length);
   }
 
+  private referenceImage(state: SessionState, message: WireMessage): WireMessage {
+    if (!message.image || !this.description?.vision?.media_refs) return message;
+    const identity = imageIdentity(message.image);
+    return state.imageIds.has(identity.id) ? { ...message, image: identity } : message;
+  }
+
   private async reconnect(state: SessionState, report?: ActivityReporter): Promise<void> {
     state.connection.close();
     const connection = await this.connect(undefined, report);
@@ -536,7 +594,8 @@ export class XenolithAdapter {
     state.connection = connection;
   }
 
-  private async synchronize(state: SessionState, translated: TranslatedContext, report?: ActivityReporter): Promise<void> {
+  private async synchronize(state: SessionState, translated: TranslatedContext, report?: ActivityReporter, signal?: AbortSignal): Promise<void> {
+    checkAbort(signal);
     if (!state.loaded) {
       let recorded: { systemKey: string; toolsKey: string } | undefined;
       try {
@@ -548,7 +607,8 @@ export class XenolithAdapter {
         state.entries = [];
         state.loaded = true;
         state.dirty = true;
-        await this.rebuild(state, translated);
+        checkAbort(signal);
+        await this.rebuild(state, translated, report);
         return;
       }
       if (recorded) {
@@ -560,7 +620,8 @@ export class XenolithAdapter {
       this.debug(
         `rebuild: dirty=${String(state.dirty)} system=${String(state.systemKey === translated.systemKey)} tools=${String(state.toolsKey === translated.toolsKey)} recorded_system=${state.systemKey.slice(0, 120)} incoming_system=${translated.systemKey.slice(0, 120)}`,
       );
-      await this.rebuild(state, translated);
+      checkAbort(signal);
+      await this.rebuild(state, translated, report);
       return;
     }
     const shadowKeys = state.entries.map((entry) => entry.key);
@@ -573,15 +634,18 @@ export class XenolithAdapter {
     if (prefix < state.entries.length) {
       const anchor = prefix > 0 ? state.entries[prefix - 1] : undefined;
       if (!anchor || rewindDropsNeededCalls(anchor, translated.messages[prefix])) {
-        await this.rebuild(state, translated);
+        checkAbort(signal);
+        await this.rebuild(state, translated, report);
         return;
       }
       try {
+        checkAbort(signal);
         this.onClassification?.("rewind");
         await state.connection.request({ op: "rewind", marker: anchor.marker });
       } catch (error) {
         if (error instanceof WireError && error.code === "marker_unavailable") {
-          await this.rebuild(state, translated);
+          checkAbort(signal);
+          await this.rebuild(state, translated, report);
           return;
         }
         throw error;
@@ -592,27 +656,30 @@ export class XenolithAdapter {
     if (prefix === translated.messages.length) return;
     this.onClassification?.("append");
     for (let index = prefix; index < translated.messages.length; index++) {
+      checkAbort(signal);
       const source = translated.messages[index];
       if (!source) continue;
       if (source.message.role === "assistant") {
-        await this.rebuild(state, translated);
+        await this.rebuild(state, translated, report);
         return;
       }
       const message: WireMessage = { ...source.message };
       if (message.role === "tool") {
         const callId = this.resolveCallId(state, source.toolResultId);
         if (callId === undefined) {
-          await this.rebuild(state, translated);
+          await this.rebuild(state, translated, report);
           return;
         }
         message.call_id = callId;
       }
       let response;
       try {
-        response = await state.connection.request(appendRequest(message));
+        if (message.image) report?.({ type: "phase", phase: "preparing_image" });
+        response = await state.connection.request(appendRequest(this.referenceImage(state, message)));
       } catch (error) {
-        if (error instanceof WireError && error.code === "invalid_request") {
-          await this.rebuild(state, translated);
+        if (!message.image && error instanceof WireError && error.code === "invalid_request") {
+          checkAbort(signal);
+          await this.rebuild(state, translated, report);
           return;
         }
         throw error;
@@ -622,6 +689,8 @@ export class XenolithAdapter {
         marker: Number(response["marker"]),
         wireCallIds: [],
       });
+      if (message.image) state.imageIds.add(imageIdentity(message.image).id);
+      if (message.image) report?.({ type: "phase", phase: "preparing" });
     }
   }
 
@@ -826,10 +895,13 @@ function genParams(options?: SimpleStreamOptions): WireGenParams {
 }
 
 export function fromHistory(entry: WireHistoryEntry): { message: WireMessage; wireCallIds: number[] } {
+  if (entry.image) validateHistoryImage(entry.image);
+  const image = entry.image ? { id: entry.image.id, budget: entry.image.budget } : undefined;
   if (entry.kind === "user") {
-    return { message: { role: "user", text: entry.text }, wireCallIds: [] };
+    return { message: { role: "user", text: entry.text, ...(image ? { image } : {}) }, wireCallIds: [] };
   }
   if (entry.kind === "assistant") {
+    if (image) throw new WireError("io_error", "unexpected image in assistant history");
     const message: WireMessage = { role: "assistant", text: entry.text };
     if (entry.reasoning !== undefined) message.reasoning = entry.reasoning;
     const wireCallIds: number[] = [];
@@ -851,7 +923,12 @@ export function fromHistory(entry: WireHistoryEntry): { message: WireMessage; wi
     status: entry.status === "error" ? "error" : "ok",
   };
   if (entry.tool !== undefined) message.tool = entry.tool;
+  if (image) message.image = image;
   return { message, wireCallIds: [] };
+}
+
+function checkAbort(signal?: AbortSignal): void {
+  if (signal?.aborted) throw new Error("aborted");
 }
 
 export function rewindDropsNeededCalls(

@@ -264,5 +264,5 @@ test("a signal already aborted before the call yields an aborted turn", async (t
   const message = await stream.result();
 
   assert.equal(message.stopReason, "aborted");
-  assert.ok(h.mock.opNames().includes("generate"));
+  assert.deepEqual(h.mock.opNames(), []);
 });

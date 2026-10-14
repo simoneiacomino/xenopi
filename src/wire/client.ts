@@ -248,6 +248,7 @@ export function xenolithServiceArgs(settings: XenolithSettings): string[] {
     "--idle-shutdown",
     String(settings.idleShutdownMinutes),
   ];
+  if (settings.mmproj) args.push("--mmproj", settings.mmproj);
   if (settings.context !== undefined) args.push("--ctx", String(validateContextCapacity(settings.context)));
   if (settings.stateDir) args.push("--state", settings.stateDir);
   if (settings.cacheDir) args.push("--cache", settings.cacheDir);
@@ -335,6 +336,7 @@ export function appendRequest(message: WireMessage): Record<string, unknown> {
   if (message.text !== undefined) out["text"] = message.text;
   if (message.call_id !== undefined) out["call_id"] = message.call_id;
   if (message.status !== undefined) out["status"] = message.status;
+  if (message.image !== undefined) out["image"] = message.image;
   return out;
 }
 

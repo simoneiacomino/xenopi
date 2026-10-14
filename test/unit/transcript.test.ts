@@ -39,8 +39,8 @@ test("changed transcript tools rebuild once and unchanged turns keep the cached 
   assert.deepEqual(h.mock.opNames(), ["append", "generate"]);
 });
 
-test("protocol v1 does not silently discard image input", () => {
-  assert.throws(() => translateContext({ messages: [{ role: "user", content: [{ type: "image", data: "data", mimeType: "image/png" }], timestamp: 0 }] }), /text input only/);
+test("translation does not silently discard malformed image input", () => {
+  assert.throws(() => translateContext({ messages: [{ role: "user", content: [{ type: "image", data: "data", mimeType: "image/png" }], timestamp: 0 }] }), /PNG and JPEG/);
 });
 
 test("async payload replacements are translated before synchronizing the wire session", async (t) => {

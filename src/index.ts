@@ -2,6 +2,7 @@ export * from "./config.js";
 export * from "./wire/protocol.js";
 export * from "./wire/describe.js";
 export * from "./wire/client.js";
+export * from "./wire/images.js";
 export * from "./adapter/translate.js";
 export * from "./adapter/bindings.js";
 export * from "./adapter/turn.js";
