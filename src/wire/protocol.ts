@@ -30,6 +30,25 @@ export interface WireMessage {
   call_id?: number;
   tool?: string;
   status?: "ok" | "error";
+  image?: WireImage;
+}
+
+export type WireImage = ({ data: string; id?: never } | { id: string; data?: never }) & { budget?: number };
+
+export interface WireVision {
+  formats: ("png" | "jpeg")[];
+  budgets: number[];
+  default_budget: number;
+  max_bytes: number;
+  max_context_media_bytes: number;
+  media_refs: boolean;
+}
+
+export interface WireHistoryImage {
+  id: string;
+  bytes: number;
+  budget: number;
+  rows: number;
 }
 
 export interface WireGenParams {
@@ -151,6 +170,7 @@ export interface WireHistoryEntry {
   status?: "ok" | "error";
   tool?: string;
   stop?: string;
+  image?: WireHistoryImage;
 }
 
 export interface WireDescribe {
@@ -158,9 +178,10 @@ export interface WireDescribe {
   model: string;
   context_window: number;
   max_output: number;
-  /** Single-line frame bound in bytes (context_window x 16); requests above it are refused. */
+  /** Single-line frame bound in bytes; requests above it are refused. */
   max_frame: number;
   kvstore: boolean;
+  vision?: WireVision;
   reasoning: {
     efforts: ("low" | "medium" | "high" | "max")[];
     history: ("discard" | "preserve_tool_calls")[];

@@ -38,7 +38,7 @@
     "prepack": "npm run build",
     "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
     "test": "npm run build && node --test \"dist/test/unit/*.test.js\"",
-    "test:model": "npm run build && node --test --test-timeout=3600000 \"dist/test/model/*.test.js\""
+    "test:model": "npm run build && node --test --test-concurrency=1 --test-timeout=3600000 \"dist/test/model/*.test.js\""
   },
   "dependencies": {
     "@earendil-works/pi-agent-core": "1.0.2",

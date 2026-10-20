@@ -2,7 +2,8 @@ import { createServer, type Server, type Socket } from "node:net";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { WireEvent } from "../../src/wire/protocol.js";
+import type { WireEvent, WireHistoryImage, WireVision } from "../../src/wire/protocol.js";
+import { createHash } from "node:crypto";
 
 export interface MockCall {
   name: string;
@@ -37,6 +38,7 @@ interface RecordEvent {
   tool?: string;
   stop?: string;
   tokens?: number;
+  image?: WireHistoryImage;
 }
 
 interface MockSession {
@@ -53,6 +55,7 @@ interface MockSession {
   /** Boundary of the last checkpoint answered saved:true. */
   savedTokens: number;
   checkpoints: number;
+  media: Map<string, Buffer>;
 }
 
 interface Conn {
@@ -77,6 +80,7 @@ export interface MockWireOptions {
   model?: string;
   maxLine?: number;
   maxOutput?: number;
+  vision?: WireVision;
 }
 
 export class MockWireServer {
@@ -95,6 +99,10 @@ export class MockWireServer {
   maxOutput: number;
   droppedConnections = 0;
   readonly model: string;
+  vision: WireVision | undefined;
+  imagePreparation: (() => Promise<void>) | undefined;
+  imageFailure: string | undefined;
+  dropAfterImageAppend = false;
   private readonly server: Server;
   private readonly sessions = new Map<string, MockSession>();
   private readonly connections = new Set<Conn>();
@@ -109,6 +117,7 @@ export class MockWireServer {
     this.maxLine = options.maxLine ?? Math.max(this.contextWindow * SERVE_FRAME_BYTES_PER_TOKEN, 1 << 20);
     this.maxOutput = options.maxOutput ?? this.maxLine; // the service uses one bound for both directions
     this.model = options.model ?? "test-model";
+    this.vision = options.vision;
     this.server = createServer((socket) => this.accept(socket));
   }
 
@@ -151,7 +160,7 @@ export class MockWireServer {
       conn.buffer += chunk;
       if (Buffer.byteLength(conn.buffer, "utf8") >= this.maxLine && !conn.buffer.includes("\n")) {
         this.send(conn, { ok: false, code: "invalid_request", error: "request line is too long" });
-        this.drop(conn);
+        this.drop(conn, true);
         return;
       }
       for (;;) {
@@ -162,7 +171,7 @@ export class MockWireServer {
         if (line.trim().length === 0) continue;
         if (Buffer.byteLength(line, "utf8") + 1 > this.maxLine) {
           this.send(conn, { ok: false, code: "invalid_request", error: "request line is too long" });
-          this.drop(conn);
+          this.drop(conn, true);
           return;
         }
         let request: Record<string, unknown>;
@@ -190,11 +199,11 @@ export class MockWireServer {
     conn.socket.write(line);
   }
 
-  private drop(conn: Conn): void {
+  private drop(conn: Conn, flush = false): void {
     if (conn.dropped) return;
     conn.dropped = true;
     this.droppedConnections++;
-    conn.socket.destroy();
+    if (flush) conn.socket.end(); else conn.socket.destroy();
     this.connections.delete(conn);
   }
 
@@ -235,7 +244,8 @@ export class MockWireServer {
       case "describe":
         this.send(conn, {
           ok: true,
-          protocol: 1,
+          protocol: this.vision ? 2 : 1,
+          ...(this.vision ? { vision: this.vision } : {}),
           model: this.model,
           context_window: this.contextWindow,
           max_output: this.contextWindow,
@@ -267,6 +277,7 @@ export class MockWireServer {
           kvTokens: 0,
           savedTokens: 0,
           checkpoints: 0,
+          media: new Map(),
         };
         this.pushSystem(session, system, tools);
         this.sessions.set(id, session);
@@ -354,12 +365,18 @@ export class MockWireServer {
           this.fail(conn, "invalid_request", "missing text");
           return;
         }
+        if (request["image"]) {
+          await this.imagePreparation?.();
+          if (this.imageFailure) { this.fail(conn, "invalid_request", this.imageFailure); return; }
+        }
+        const image = this.recordImage(session, request["image"]);
         if (role === "user") {
-          const marker = this.pushEvent(session, { kind: "user", text, tokens: tokensOf(text) });
+          const marker = this.pushEvent(session, { kind: "user", text, tokens: tokensOf(text), ...(image ? { image } : {}) });
           if (marker === undefined) {
             this.overflow(conn, this.totalTokens(session) + tokensOf(text));
             return;
           }
+          if (image && this.dropAfterImageAppend) { this.dropAfterImageAppend = false; this.drop(conn); return; }
           this.send(conn, { ok: true, marker });
           return;
         }
@@ -382,6 +399,7 @@ export class MockWireServer {
             status,
             tool: name,
             tokens: tokensOf(text),
+            ...(image ? { image } : {}),
           });
           if (marker === undefined) {
             this.overflow(conn, this.totalTokens(session) + tokensOf(text));
@@ -418,7 +436,8 @@ export class MockWireServer {
           const role = String(message["role"]);
           const text = typeof message["text"] === "string" ? (message["text"] as string) : "";
           if (role === "user") {
-            this.pushEvent(session, { kind: "user", text, tokens: tokensOf(text) });
+            const image = this.recordImage(session, message["image"]);
+            this.pushEvent(session, { kind: "user", text, tokens: tokensOf(text), ...(image ? { image } : {}) });
             continue;
           }
           if (role === "assistant") {
@@ -455,6 +474,7 @@ export class MockWireServer {
               status: message["status"] === "error" ? "error" : "ok",
               tool: session.toolNames.get(candidate) ?? "",
               tokens: tokensOf(text),
+              ...(message["image"] ? { image: this.recordImage(session, message["image"]) } : {}),
             });
             continue;
           }
@@ -553,6 +573,7 @@ export class MockWireServer {
           };
           if (event.kind === "system") entry["extra"] = session.tools;
           if (event.kind === "assistant" && event.calls) entry["extra"] = event.calls;
+          if (event.image) entry["image"] = event.image;
           if (event.kind === "assistant" && event.reasoning !== undefined)
             entry["reasoning"] = event.reasoning;
           if (event.kind === "tool_result") {
@@ -596,9 +617,28 @@ export class MockWireServer {
         await this.generate(conn, undefined);
         return;
       }
+      case "media": {
+        const bytes = conn.session?.media.get(String(request["image_id"]));
+        if (!bytes) { this.fail(conn, "invalid_request", "image media not found"); return; }
+        const offset = Number(request["offset"] ?? 0);
+        const limit = Number(request["limit"] ?? 262144);
+        this.send(conn, { ok: true, offset, total: bytes.length, data: bytes.subarray(offset, offset + limit).toString("base64") });
+        return;
+      }
       default:
         this.fail(conn, "invalid_request", "unknown op");
     }
+  }
+
+  private recordImage(session: MockSession, value: unknown): WireHistoryImage | undefined {
+    if (!value) return undefined;
+    const image = value as { data?: string; id?: string; budget?: number };
+    const bytes = image.data ? Buffer.from(image.data, "base64") : session.media.get(image.id ?? "");
+    if (!bytes) throw new Error("mock received an unavailable image reference");
+    const id = createHash("sha256").update(bytes).digest("hex");
+    session.media.set(id, bytes);
+    const budget = image.budget ?? this.vision?.default_budget ?? 280;
+    return { id, budget, bytes: bytes.length, rows: Math.min(budget, 126) };
   }
 
   private recomputeCalls(session: MockSession, target: number): void {

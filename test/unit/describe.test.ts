@@ -21,7 +21,7 @@ test("model registration reflects service capabilities instead of a model family
 
 test("unsupported protocols and malformed capabilities fail before registration", () => {
   for (const patch of [
-    { protocol: 2 }, { model: "" }, { context_window: 0 }, { max_output: -1 },
+    { protocol: 3 }, { protocol: 2 }, { model: "" }, { context_window: 0 }, { max_output: -1 },
     { max_frame: Number.NaN }, { reasoning: { efforts: ["magic"] } },
   ]) assert.throws(() => parseDescription({ ...description, ...patch }), /describe response/);
 });

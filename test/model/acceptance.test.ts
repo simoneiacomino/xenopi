@@ -185,7 +185,9 @@ test("an oversized prompt reaches Pi's bounded overflow recovery", async () => {
         }
         if (event.type === "compaction_end" && event.reason === "overflow") recovery.push(event);
       });
-      const oversized = `Ignore this filler. ${"filler ".repeat(300000)}Answer with one word.`;
+      // Exceed the token window while staying within its wire byte bound.
+      // A fixed 300k repetitions tested frame overflow at smaller capacities.
+      const oversized = `Ignore this filler. ${"filler ".repeat(handle.session.model!.contextWindow + 4096)}Answer with one word.`;
       await handle.session.prompt(oversized);
       await settle(handle.session);
       unsubscribe();

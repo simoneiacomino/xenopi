@@ -2,6 +2,7 @@ import type { Context, Message, Tool } from "@earendil-works/pi-ai";
 import { getCurrentSystemPrompt, getCurrentTools, normalizeContext } from "@earendil-works/pi-ai";
 import { WireError } from "../wire/protocol.js";
 import type { WireCall, WireMessage, WireToolDeclaration } from "../wire/protocol.js";
+import { imageIdentity, inlineImage } from "../wire/images.js";
 
 export interface TranslatedMessage {
   message: WireMessage;
@@ -32,14 +33,19 @@ export function stableStringify(value: unknown): string {
   return `{${parts.join(",")}}`;
 }
 
-function textOf(content: Message["content"]): string {
-  if (typeof content === "string") return content;
+function inputOf(content: Message["content"], budget: number): Pick<WireMessage, "text" | "image"> {
+  if (typeof content === "string") return { text: content };
   const parts: string[] = [];
+  let image: WireMessage["image"];
   for (const item of content) {
-    if (item.type === "text") parts.push(item.text);
-    else throw new WireError("invalid_request", "Xenolith wire protocol v1 accepts text input only");
+    if (item.type === "text") {
+      parts.push(item.text);
+    } else if (item.type === "image") {
+      if (image) throw new WireError("invalid_request", "Xenolith accepts one image per message; send images in separate turns");
+      image = inlineImage(item.data, item.mimeType, budget);
+    } else throw new WireError("invalid_request", "unsupported Xenolith input content");
   }
-  return parts.join("");
+  return image ? { text: parts.join(""), image } : { text: parts.join("") };
 }
 
 export function translateTools(tools: Tool[] | undefined): WireToolDeclaration[] {
@@ -57,9 +63,9 @@ export function translateTools(tools: Tool[] | undefined): WireToolDeclaration[]
   });
 }
 
-export function translateMessage(message: Exclude<Message, { role: "system" }>): TranslatedMessage {
+export function translateMessage(message: Exclude<Message, { role: "system" }>, budget = 280): TranslatedMessage {
   if (message.role === "user") {
-    const wire: WireMessage = { role: "user", text: textOf(message.content) };
+    const wire: WireMessage = { role: "user", ...inputOf(message.content, budget) };
     return { message: wire, key: keyOf(wire), toolCallIds: [], toolResultId: undefined };
   }
   if (message.role === "assistant") {
@@ -73,7 +79,7 @@ export function translateMessage(message: Exclude<Message, { role: "system" }>):
       else if (item.type === "toolCall") {
         calls.push({ name: item.name, arguments: item.arguments ?? {} });
         toolCallIds.push(item.id);
-      }
+      } else throw new WireError("invalid_request", "unsupported Xenolith assistant content");
     }
     const wire: WireMessage = { role: "assistant", text: parts.join("") };
     if (reasoning.length > 0) wire.reasoning = reasoning.join("");
@@ -82,7 +88,7 @@ export function translateMessage(message: Exclude<Message, { role: "system" }>):
   }
   const wire: WireMessage = {
     role: "tool",
-    text: textOf(message.content),
+    ...inputOf(message.content, budget),
     tool: message.toolName,
     status: message.isError ? "error" : "ok",
   };
@@ -91,10 +97,11 @@ export function translateMessage(message: Exclude<Message, { role: "system" }>):
 
 export function keyOf(message: WireMessage): string {
   const { role, text, calls, tool, status } = message;
-  return stableStringify({ role, text, calls, tool, status });
+  const image = message.image ? imageIdentity(message.image) : undefined;
+  return stableStringify({ role, text, calls, tool, status, image });
 }
 
-export function translateContext(context: Context): TranslatedContext {
+export function translateContext(context: Context, budget = 280): TranslatedContext {
   const transcript = normalizeContext(context);
   const system = getCurrentSystemPrompt(transcript.messages) || undefined;
   const tools = translateTools(getCurrentTools(transcript.messages));
@@ -105,7 +112,7 @@ export function translateContext(context: Context): TranslatedContext {
     toolsKey: stableStringify(tools),
     // Protocol v1 carries one prompt/tool set outside the conversation. A
     // changed effective prompt or tool set triggers the adapter's rebuild.
-    messages: transcript.messages.filter((message) => message.role !== "system").map(translateMessage),
+    messages: transcript.messages.filter((message) => message.role !== "system").map((message) => translateMessage(message, budget)),
   };
 }
 

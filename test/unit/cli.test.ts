@@ -8,8 +8,24 @@ import { promisify } from "node:util";
 import test from "node:test";
 import { packageRoot } from "../../src/launcher.js";
 import { MockWireServer } from "./mock-wire.js";
+import { png, vision } from "./vision-fixture.js";
 
 const execFileAsync = promisify(execFile);
+
+test("CLI @image attachment reaches the v2 engine as image bytes", { timeout: 15000 }, async (t) => {
+  const root = mkdtempSync(join(tmpdir(), "xenopi-cli-vision-"));
+  const mock = await MockWireServer.start({ vision });
+  t.after(async () => { await mock.stop(); rmSync(mock.directory, { recursive: true, force: true }); rmSync(root, { recursive: true, force: true }); });
+  const image = join(root, "image.png"); writeFileSync(image, Buffer.from(png, "base64"));
+  mock.turns.push({ text: "vision-cli-complete" });
+  const run = execFileAsync(process.execPath, [join(packageRoot(), "dist/src/bin/xenopi.js"), "--mode", "json", "--thinking", "off", "--no-tools", "-p", `@${image}`, "Describe the image."], {
+    cwd: root, env: { ...process.env, XENOPI_DIR: root, XENOLITH_SOCKET: mock.socketPath, XENOLITH_NO_SPAWN: "1" }, timeout: 10000,
+  });
+  run.child.stdin?.end();
+  const result = await run;
+  assert.match(result.stdout, /vision-cli-complete/);
+  assert.deepEqual(mock.ops.find((op) => op.op === "append")?.image, { data: png, budget: 280 });
+});
 
 test("CLI cold startup creates the socket directory and exits while its engine stays running", { timeout: 15000 }, async (t) => {
   const root = mkdtempSync(join(tmpdir(), "xenopi-cli-cold-"));

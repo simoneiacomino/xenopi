@@ -5,6 +5,10 @@ import { join } from "node:path";
 export interface XenolithSettings {
   bin: string;
   model: string | undefined;
+  /** Existing Xenolith encoder/projector; only used when spawning the service. */
+  mmproj?: string;
+  /** Visual row budget; the service validates its supported values. */
+  imageBudget?: number;
   socket: string;
   stateDir: string | undefined;
   cacheDir: string | undefined;
@@ -18,6 +22,8 @@ export interface XenolithSettings {
 export interface XenolithSettingsFile {
   bin?: string;
   model?: string;
+  mmproj?: string;
+  imageBudget?: number;
   socket?: string;
   stateDir?: string;
   cacheDir?: string;
@@ -114,12 +120,17 @@ export function resolveXenolithSettings(
   const cacheBudget = env["XENOLITH_CACHE_BUDGET"] ?? file.cacheBudget;
   const idleParsed = idleEnv !== undefined ? Number(idleEnv) : Number.NaN;
   const contextEnv = env["XENOLITH_CONTEXT"];
+  const imageBudgetEnv = env["XENOLITH_IMAGE_BUDGET"];
+  const imageBudget = imageBudgetEnv === undefined ? file.imageBudget :
+    /^[0-9]+$/.test(imageBudgetEnv) ? Number(imageBudgetEnv) : Number.NaN;
   const context = contextEnv !== undefined
     ? validateContextCapacity(/^[0-9]+$/.test(contextEnv) ? Number(contextEnv) : Number.NaN, "XENOLITH_CONTEXT")
     : file.context === undefined ? undefined : validateContextCapacity(file.context, '"context" in xenolith.json');
   return {
     bin: env["XENOLITH_BIN"] ?? file.bin ?? "xenolith",
     model: env["XENOLITH_MODEL"] ?? file.model,
+    mmproj: env["XENOLITH_MMPROJ"] ?? file.mmproj,
+    imageBudget: imageBudget === undefined ? undefined : validateContextCapacity(imageBudget, "imageBudget"),
     socket: socketEnv && socketEnv.length > 0 ? socketEnv : (file.socket ?? defaultSocketPath(env)),
     stateDir: env["XENOLITH_STATE_DIR"] ?? file.stateDir,
     cacheDir: env["XENOLITH_CACHE_DIR"] ?? file.cacheDir,

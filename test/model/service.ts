@@ -14,7 +14,7 @@ import {
   providerModel,
 } from "../../src/extensions/provider.js";
 import { extensionPaths, packageRoot } from "../../src/launcher.js";
-import { xenolithDefaultStateDir } from "../../src/config.js";
+import { validateContextCapacity, xenolithDefaultStateDir } from "../../src/config.js";
 import { describeService } from "../../src/wire/describe.js";
 import type { WireDescribe } from "../../src/wire/protocol.js";
 export interface McpConfig { mcpServers: Record<string, Record<string, unknown>>; }
@@ -82,6 +82,7 @@ export function batteryModel(info: WireDescribe): Model<Api> {
     reasoning: definition.reasoning,
     thinkingLevelMap: definition.thinkingLevelMap,
     input: definition.input,
+    inputLimits: definition.inputLimits,
     cost: definition.cost,
     contextWindow: definition.contextWindow,
     maxTokens: definition.maxTokens,
@@ -122,6 +123,7 @@ export interface Service {
   stateDir: string;
   cacheDir: string;
   child: ChildProcess;
+  engine?: { mmproj?: string; context?: number; cacheBudget?: string };
 }
 
 function sleep(ms: number): Promise<void> {
@@ -202,6 +204,9 @@ export function spawnService(service: Omit<Service, "child">): ChildProcess {
       service.cacheDir,
       "--idle-shutdown",
       String(IDLE_SHUTDOWN_MINUTES),
+      ...(service.engine?.mmproj ? ["--mmproj", service.engine.mmproj] : []),
+      ...(service.engine?.context ? ["--ctx", String(service.engine.context)] : []),
+      ...(service.engine?.cacheBudget !== undefined ? ["--cache-budget", service.engine.cacheBudget] : []),
     ],
     {
       stdio: ["ignore", logFd, logFd],
@@ -214,7 +219,7 @@ export function spawnService(service: Omit<Service, "child">): ChildProcess {
   );
 }
 
-export async function startService(mcp?: McpConfig): Promise<Service> {
+export async function startService(mcp?: McpConfig, engine?: Service["engine"]): Promise<Service> {
   const root = isolatedRoot();
   const stateDir = join(root, "state");
   const cacheDir = join(root, "cache");
@@ -224,7 +229,9 @@ export async function startService(mcp?: McpConfig): Promise<Service> {
   mkdirSync(join(root, "xdg-state"), { recursive: true });
   mkdirSync(join(root, "xdg-runtime"), { recursive: true });
   const agentDir = seedAgent(root, mcp);
-  const partial = { root, agentDir, socket, stateDir, cacheDir };
+  const contextEnv = process.env["XENOLITH_CONTEXT"];
+  const configured = { ...engine, context: engine?.context ?? (contextEnv === undefined ? undefined : validateContextCapacity(Number(contextEnv), "XENOLITH_CONTEXT")) };
+  const partial = { root, agentDir, socket, stateDir, cacheDir, engine: configured };
   await waitForEngineBudget();
   const child = spawnService(partial);
   liveChildren.add(child);
@@ -299,6 +306,7 @@ const MANAGED_ENV = [
   "XENOLITH_BIN",
   "XENOLITH_MODEL",
   "XENOLITH_SOCKET",
+  "XENOLITH_CONTEXT",
   "XENOLITH_NO_SPAWN",
 ] as const;
 
@@ -310,6 +318,8 @@ export async function openAgentSession(service: Service, tools?: string[], sessi
   process.env["XENOLITH_BIN"] = XENOLITH_BIN;
   process.env["XENOLITH_MODEL"] = XENOLITH_MODEL;
   process.env["XENOLITH_SOCKET"] = service.socket;
+  if (service.engine?.context !== undefined) process.env["XENOLITH_CONTEXT"] = String(service.engine.context);
+  else delete process.env["XENOLITH_CONTEXT"];
   process.env["XENOLITH_NO_SPAWN"] = "1";
   const settingsManager = SettingsManager.create(service.root, service.agentDir);
   const info = await describeService(wireSettings(service));

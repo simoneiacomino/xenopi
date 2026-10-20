@@ -1,0 +1,870 @@
+{
+  "date": "2026-10-14",
+  "machine": "xenolith-lnl, WSL Ubuntu 24.04, Intel Core Ultra 7 268V / Arc 140V",
+  "node": "26.11.1",
+  "node_linux_archive_sha256": "3883bfc73f9a680ca4eab04b196068aaaab1373ffa77d8fc1a4408222495b651",
+  "pi": "1.0.2",
+  "baseline_xenopi_commit": "80831d1",
+  "upstream_xenopi_commit": "e92a082",
+  "engine_sha256": "df1bab0c9f85625da242b0eecca0dae4ed79924c10f487d056c79f708db70b21",
+  "model_sha256": "a7c5bc715f5ff8e99a3e8901ce7d2b42b402c669bf24f7c5250747633d0f5891",
+  "mmproj_sha256": "d00f211a7d4f7fb19bd9b75d8e9342eccffb5920b08fd9562167560fdfcc5dd1",
+  "source_hashes_final": {
+    "package-lock.json": "086c15b12cb9f384c3e255906754f36568c182b5d9e249a7a035eef076f949aa",
+    "package.json": "61a41c7a4af54a54a657d87ef41fbad496996c054239bf449cb28da433469fb7",
+    "src/activity.ts": "b7181153cfdd11f5a73150493b5a9ec80d0bcfa35a19ea53c9f9f1a144961064",
+    "src/adapter/adapter.ts": "0f16db0e97749e8e472321d8d910f4b8a54af9d15f7342767db3661d37673010",
+    "src/adapter/bindings.ts": "1cb190ad6fa0251fd89925d03147735c2c9cc0336abb56e87d5101bc9149e754",
+    "src/adapter/translate.ts": "3baeed32c125b5746cedbb63e42871476cb19efb520bc994f57e7afb19b08043",
+    "src/adapter/turn.ts": "9089369fee100f409132464a5ddacc15462a4d443335a184eb7514cf3d333abb",
+    "src/bin/xenopi.ts": "310eac5a6b31b6f97c8f3d06cf9e703cee2937c9e3bf69af302224282596dc39",
+    "src/config.ts": "12d9469f3d05ff7ad4853d000923d54c38bfef954128220617a1d2eaf7bb044b",
+    "src/extensions/branding.ts": "b73b9b54db2ffced1a9ccc99fbde0bc69f585b78f40fa56b880a0f6a3b9fdce8",
+    "src/extensions/provider.ts": "7c4edbb865290821e65d410499643bc01c5bd00929162e4f0727c68ef1552d10",
+    "src/index.ts": "9d977d2c54fd66613e30db7af63c49a203680c224825699fa2109dd17f7d2479",
+    "src/launcher.ts": "70902eca4d17358d796fa81c04147550fb41a8c605f2ef19e8f1910bc41b5d97",
+    "src/migrate-mcp.ts": "cb9117bbe6122f485e5bc0b0278c7c055976803c122ad06a98a97cedcf237621",
+    "src/product.ts": "71abf9fefb64551386ce91f940b7ef7760d9ee5154f81737087e93a174e55e2e",
+    "src/progress.ts": "8e7007220a301bf5a3b9eb6d19091d3d3211d06d17eea15a51105fe16a41387c",
+    "src/startup.ts": "073b5171b7c770118cd22c4c39eb89290ce4fcb5419109abbf48f8c9d936d24e",
+    "src/wire/client.ts": "c8e44e2536a5f47590b0075360e4ac780a899992c5d3a8e9531d58d451182efb",
+    "src/wire/describe.ts": "d5996e9adca9512db7e936d909d23c44aaa7d086b19a8074f008ce0d1e2d4e2f",
+    "src/wire/images.ts": "ca8eb93c21a0f8492253821859ec46e99e6efbc811800f3e5acc76c68aa61259",
+    "src/wire/protocol.ts": "53f5e79dc52ee32044703940876ea87e979181420f8cb849838a9c8c7f3bb169",
+    "test/model/acceptance.test.ts": "c29c59f2729e92a5876b99cc6b6b4158c36a50f6f274792e880cf27d59ee1469",
+    "test/model/service.ts": "7a1a5dc980fd4aa44f7171f0b4390cc90960e3cf7cc7fea561d4b0e41fd5b8be",
+    "test/model/text-parity.test.ts": "17bc82e35a79ec5cf643d7c9a52f6d77d9274a360772bddf27d94b6bb3a406f9",
+    "test/model/vision.test.ts": "3341f727a39fba5bbbc94cf9a0ff63f77f9cf14c70f7126fae5e75a74f702edf",
+    "test/unit/activity.test.ts": "bf96089ec34eb8c7e8b3f26a744320215dd498ac086dd154b66d156cb9c6579a",
+    "test/unit/adapter.test.ts": "4e8e4d8c04c9be521156e47951d1bde2ef07722ca019a5a1a1d593ada5d441a5",
+    "test/unit/bindings.test.ts": "3861edeb43c072aba8f494e1a137b2e4d6ec09f56433e7535d79619dc5ef57d9",
+    "test/unit/branding.test.ts": "9cfe5b3b6f67179aff10bede472b912b8e1d4f2df639ea80903ad2a5e762a53d",
+    "test/unit/cli.test.ts": "f2d0f0c4638bc8fb3110cb5bbd897125185d0e3953b545a7a1ed02d0f24545af",
+    "test/unit/config.test.ts": "3d97419072d2bdc0be0ffdd18818c1019c810d971ab0ae8b0a582bd47495d7b2",
+    "test/unit/describe.test.ts": "70d7064a04d322b8dbd4567e1d1e20ce0c2df80c8e4cfca1b76f1c669007bc66",
+    "test/unit/events.test.ts": "f6a9589de672afe36a396d5d194a0188c074aff83e4d7f8e313065f5a2521aa3",
+    "test/unit/fixtures/mcp-http-server.ts": "69de9f78b1fb13e04b8f93b980eb4a60bc2a659a68973600e702472fbc58c1df",
+    "test/unit/fixtures/mcp-stdio-server.ts": "8f49da3a70b5c7d88f53d5a3f20ed68cae26cc05b56195007d05602a7e09be89",
+    "test/unit/fixtures/mcp-tools.ts": "bc5f49cd177976357b3d7afaf9068749ce2ebc453b9e8be40f62e1861486f859",
+    "test/unit/harness.ts": "0f00349cf8f85edd95d2afeeb6abb5aade8eee830d6f2bea9b2173249a8c7d47",
+    "test/unit/hooks.test.ts": "d949498aaf49486990709b72e272193076a5c7cd67901c8716b2e5f50b9951c4",
+    "test/unit/launcher.test.ts": "c975ac82485d21b04aa9a42391c5bf9cc9b66af50144f3b9d4d31894389489b0",
+    "test/unit/mcp.test.ts": "89966502885a60f99e6624178726e0f7593ee4e8b79e0c33201ab2c18420911a",
+    "test/unit/migrate-mcp.test.ts": "671af834f524d6b58633a32ad789eb9cd994ef9bbf15e34e2589384bf4b4f54c",
+    "test/unit/mock-wire.ts": "abc8b69afe910441baaef36dd93ba37d60e54d3cd04c76c2e653dac6a0e22401",
+    "test/unit/native-session.ts": "dd1dca0ce9d5bc4a1b031e72728ecd19e51b50a791cceac4470c9f3001358a81",
+    "test/unit/progress.test.ts": "773cfaa2214a67430300bbf0ed45c372181152f670936ecd776ffc34f6856722",
+    "test/unit/robustness.test.ts": "1bc4aa954b9cf23727455a44da23f4cb4bf89a627a6daa7bdea1a2952d3fa2e0",
+    "test/unit/startup.test.ts": "c21f8b6fb76eaa09664bb39a0678ee765dfe7aeea04fff62b289f3e51bd8ab75",
+    "test/unit/transcript.test.ts": "50f4fdf4ebb3e655149d0bcd03e77322ffe19c076122f0ebdd145d81c4f2bb55",
+    "test/unit/turn.test.ts": "ab5829e679766194e08e1115f48bd2f2e8a254694929efa8a22ef31a899bbc4d",
+    "test/unit/vision-fixture.ts": "6d93e7bd109ba119797b88151ef0a4a21ec5afe99be06c25deaee8f3820fa043",
+    "test/unit/vision.test.ts": "ccab60aee01fe9618bc223ac3ad264b4b3bb48365ad9227e50d63214bc8ec817",
+    "tsconfig.json": "1beb1ee39d17d938d40518a7c5187809b3c6d718407cbf67097b4014d2c7da45"
+  },
+  "source_hashes_model_run": {
+    "package-lock.json": "086c15b12cb9f384c3e255906754f36568c182b5d9e249a7a035eef076f949aa",
+    "package.json": "61a41c7a4af54a54a657d87ef41fbad496996c054239bf449cb28da433469fb7",
+    "src/activity.ts": "b7181153cfdd11f5a73150493b5a9ec80d0bcfa35a19ea53c9f9f1a144961064",
+    "src/adapter/adapter.ts": "172654e2230d9d6ed004dfb70596a56da8baea296cd41210273cb66f60838d2b",
+    "src/adapter/bindings.ts": "1cb190ad6fa0251fd89925d03147735c2c9cc0336abb56e87d5101bc9149e754",
+    "src/adapter/translate.ts": "3baeed32c125b5746cedbb63e42871476cb19efb520bc994f57e7afb19b08043",
+    "src/adapter/turn.ts": "9089369fee100f409132464a5ddacc15462a4d443335a184eb7514cf3d333abb",
+    "src/bin/xenopi.ts": "310eac5a6b31b6f97c8f3d06cf9e703cee2937c9e3bf69af302224282596dc39",
+    "src/config.ts": "12d9469f3d05ff7ad4853d000923d54c38bfef954128220617a1d2eaf7bb044b",
+    "src/extensions/branding.ts": "b73b9b54db2ffced1a9ccc99fbde0bc69f585b78f40fa56b880a0f6a3b9fdce8",
+    "src/extensions/provider.ts": "7c4edbb865290821e65d410499643bc01c5bd00929162e4f0727c68ef1552d10",
+    "src/index.ts": "9d977d2c54fd66613e30db7af63c49a203680c224825699fa2109dd17f7d2479",
+    "src/launcher.ts": "70902eca4d17358d796fa81c04147550fb41a8c605f2ef19e8f1910bc41b5d97",
+    "src/migrate-mcp.ts": "cb9117bbe6122f485e5bc0b0278c7c055976803c122ad06a98a97cedcf237621",
+    "src/product.ts": "71abf9fefb64551386ce91f940b7ef7760d9ee5154f81737087e93a174e55e2e",
+    "src/progress.ts": "8e7007220a301bf5a3b9eb6d19091d3d3211d06d17eea15a51105fe16a41387c",
+    "src/startup.ts": "073b5171b7c770118cd22c4c39eb89290ce4fcb5419109abbf48f8c9d936d24e",
+    "src/wire/client.ts": "c8e44e2536a5f47590b0075360e4ac780a899992c5d3a8e9531d58d451182efb",
+    "src/wire/describe.ts": "d5996e9adca9512db7e936d909d23c44aaa7d086b19a8074f008ce0d1e2d4e2f",
+    "src/wire/images.ts": "ca8eb93c21a0f8492253821859ec46e99e6efbc811800f3e5acc76c68aa61259",
+    "src/wire/protocol.ts": "53f5e79dc52ee32044703940876ea87e979181420f8cb849838a9c8c7f3bb169",
+    "test/model/acceptance.test.ts": "c29c59f2729e92a5876b99cc6b6b4158c36a50f6f274792e880cf27d59ee1469",
+    "test/model/service.ts": "7a1a5dc980fd4aa44f7171f0b4390cc90960e3cf7cc7fea561d4b0e41fd5b8be",
+    "test/model/text-parity.test.ts": "17bc82e35a79ec5cf643d7c9a52f6d77d9274a360772bddf27d94b6bb3a406f9",
+    "test/model/vision.test.ts": "3341f727a39fba5bbbc94cf9a0ff63f77f9cf14c70f7126fae5e75a74f702edf",
+    "test/unit/activity.test.ts": "bf96089ec34eb8c7e8b3f26a744320215dd498ac086dd154b66d156cb9c6579a",
+    "test/unit/adapter.test.ts": "4e8e4d8c04c9be521156e47951d1bde2ef07722ca019a5a1a1d593ada5d441a5",
+    "test/unit/bindings.test.ts": "3861edeb43c072aba8f494e1a137b2e4d6ec09f56433e7535d79619dc5ef57d9",
+    "test/unit/branding.test.ts": "9cfe5b3b6f67179aff10bede472b912b8e1d4f2df639ea80903ad2a5e762a53d",
+    "test/unit/cli.test.ts": "f2d0f0c4638bc8fb3110cb5bbd897125185d0e3953b545a7a1ed02d0f24545af",
+    "test/unit/config.test.ts": "3d97419072d2bdc0be0ffdd18818c1019c810d971ab0ae8b0a582bd47495d7b2",
+    "test/unit/describe.test.ts": "70d7064a04d322b8dbd4567e1d1e20ce0c2df80c8e4cfca1b76f1c669007bc66",
+    "test/unit/events.test.ts": "f6a9589de672afe36a396d5d194a0188c074aff83e4d7f8e313065f5a2521aa3",
+    "test/unit/fixtures/mcp-http-server.ts": "69de9f78b1fb13e04b8f93b980eb4a60bc2a659a68973600e702472fbc58c1df",
+    "test/unit/fixtures/mcp-stdio-server.ts": "8f49da3a70b5c7d88f53d5a3f20ed68cae26cc05b56195007d05602a7e09be89",
+    "test/unit/fixtures/mcp-tools.ts": "bc5f49cd177976357b3d7afaf9068749ce2ebc453b9e8be40f62e1861486f859",
+    "test/unit/harness.ts": "0f00349cf8f85edd95d2afeeb6abb5aade8eee830d6f2bea9b2173249a8c7d47",
+    "test/unit/hooks.test.ts": "d949498aaf49486990709b72e272193076a5c7cd67901c8716b2e5f50b9951c4",
+    "test/unit/launcher.test.ts": "c975ac82485d21b04aa9a42391c5bf9cc9b66af50144f3b9d4d31894389489b0",
+    "test/unit/mcp.test.ts": "89966502885a60f99e6624178726e0f7593ee4e8b79e0c33201ab2c18420911a",
+    "test/unit/migrate-mcp.test.ts": "671af834f524d6b58633a32ad789eb9cd994ef9bbf15e34e2589384bf4b4f54c",
+    "test/unit/mock-wire.ts": "abc8b69afe910441baaef36dd93ba37d60e54d3cd04c76c2e653dac6a0e22401",
+    "test/unit/native-session.ts": "dd1dca0ce9d5bc4a1b031e72728ecd19e51b50a791cceac4470c9f3001358a81",
+    "test/unit/progress.test.ts": "773cfaa2214a67430300bbf0ed45c372181152f670936ecd776ffc34f6856722",
+    "test/unit/robustness.test.ts": "1bc4aa954b9cf23727455a44da23f4cb4bf89a627a6daa7bdea1a2952d3fa2e0",
+    "test/unit/startup.test.ts": "c21f8b6fb76eaa09664bb39a0678ee765dfe7aeea04fff62b289f3e51bd8ab75",
+    "test/unit/transcript.test.ts": "50f4fdf4ebb3e655149d0bcd03e77322ffe19c076122f0ebdd145d81c4f2bb55",
+    "test/unit/turn.test.ts": "ab5829e679766194e08e1115f48bd2f2e8a254694929efa8a22ef31a899bbc4d",
+    "test/unit/vision-fixture.ts": "6d93e7bd109ba119797b88151ef0a4a21ec5afe99be06c25deaee8f3820fa043",
+    "test/unit/vision.test.ts": "2acc37dd3eb50fca8e03dd8990dbc2d468bbbbb325b6cdd2f73084168e68009c",
+    "tsconfig.json": "1beb1ee39d17d938d40518a7c5187809b3c6d718407cbf67097b4014d2c7da45"
+  },
+  "changes_after_full_model_run": {
+    "files": [
+      "src/adapter/adapter.ts",
+      "test/unit/vision.test.ts"
+    ],
+    "description": "Added an abort check before rewind after history reconciliation and its unit test; all 179 unit tests and cold CLI rerun on final sources. No numerical path changes."
+  },
+  "unit": {
+    "macos": {
+      "tests": 179,
+      "pass": 179,
+      "fail": 0
+    },
+    "wsl": {
+      "tests": 179,
+      "pass": 179,
+      "fail": 0
+    }
+  },
+  "consolidated_model_cases": {
+    "tests": 12,
+    "pass": 12,
+    "description": "7 existing text checks plus corrected overflow check, 2 text parity cases, 2 vision cases."
+  },
+  "initial_model_run": {
+    "returncode": 1,
+    "elapsed_seconds": 633.7519934177399,
+    "started_utc": "2026-10-14T18:13:14Z",
+    "node": "26.11.1",
+    "model": "/home/simo/.models/gemma-4-26B-A4B-it-qat-UD-Q4_K_XL.gguf",
+    "mmproj": "/home/simo/dev/xenolith-vision-20261014/reference/mmproj-F16.gguf",
+    "engine_sha256": "df1bab0c9f85625da242b0eecca0dae4ed79924c10f487d056c79f708db70b21"
+  },
+  "initial_failure_explanation": "The fixed 300000 filler repetitions exceeded the v1 frame byte limit at 64k before token overflow. The fixture now scales with context_window; original overflow assertions pass in the targeted rerun.",
+  "final_reruns": [
+    {
+      "name": "unit",
+      "returncode": 0,
+      "elapsed_seconds": 5.656912803649902
+    },
+    {
+      "name": "overflow",
+      "returncode": 0,
+      "elapsed_seconds": 47.04607272148132
+    },
+    {
+      "name": "vision",
+      "returncode": 0,
+      "elapsed_seconds": 291.3917238712311
+    }
+  ],
+  "text_parity_summary_ms": {
+    "65536": {
+      "baseline": 2763.640066500002,
+      "candidate": 2789.4571079999987,
+      "percent_change": 0.9341680131556673,
+      "samples_per_variant": 4,
+      "identical_output_stop_usage": true
+    },
+    "131072": {
+      "baseline": 3250.2752905000016,
+      "candidate": 3030.014696499995,
+      "percent_change": -6.776675029459522,
+      "samples_per_variant": 4,
+      "identical_output_stop_usage": true
+    }
+  },
+  "text_parity_raw": {
+    "65536": {
+      "capacity": 65536,
+      "baseline": "/home/simo/dev/xenopi-vision-20261014/baseline",
+      "samples": [
+        {
+          "variant": "baseline",
+          "elapsed_ms": 3098.6990959999985,
+          "text": "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12",
+          "usage": {
+            "input": 47,
+            "output": 38,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "reasoning": 0,
+            "totalTokens": 85,
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            }
+          },
+          "stop": "stop"
+        },
+        {
+          "variant": "candidate",
+          "elapsed_ms": 2817.2085509999997,
+          "text": "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12",
+          "usage": {
+            "input": 47,
+            "output": 38,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "reasoning": 0,
+            "totalTokens": 85,
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            }
+          },
+          "stop": "stop"
+        },
+        {
+          "variant": "candidate",
+          "elapsed_ms": 2699.583355999999,
+          "text": "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12",
+          "usage": {
+            "input": 47,
+            "output": 38,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "reasoning": 0,
+            "totalTokens": 85,
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            }
+          },
+          "stop": "stop"
+        },
+        {
+          "variant": "baseline",
+          "elapsed_ms": 2755.6297099999974,
+          "text": "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12",
+          "usage": {
+            "input": 47,
+            "output": 38,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "reasoning": 0,
+            "totalTokens": 85,
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            }
+          },
+          "stop": "stop"
+        },
+        {
+          "variant": "baseline",
+          "elapsed_ms": 2731.9086559999996,
+          "text": "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12",
+          "usage": {
+            "input": 47,
+            "output": 38,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "reasoning": 0,
+            "totalTokens": 85,
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            }
+          },
+          "stop": "stop"
+        },
+        {
+          "variant": "candidate",
+          "elapsed_ms": 2805.880075000001,
+          "text": "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12",
+          "usage": {
+            "input": 47,
+            "output": 38,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "reasoning": 0,
+            "totalTokens": 85,
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            }
+          },
+          "stop": "stop"
+        },
+        {
+          "variant": "candidate",
+          "elapsed_ms": 2773.0341409999965,
+          "text": "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12",
+          "usage": {
+            "input": 47,
+            "output": 38,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "reasoning": 0,
+            "totalTokens": 85,
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            }
+          },
+          "stop": "stop"
+        },
+        {
+          "variant": "baseline",
+          "elapsed_ms": 2771.6504230000064,
+          "text": "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12",
+          "usage": {
+            "input": 47,
+            "output": 38,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "reasoning": 0,
+            "totalTokens": 85,
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            }
+          },
+          "stop": "stop"
+        }
+      ]
+    },
+    "131072": {
+      "capacity": 131072,
+      "baseline": "/home/simo/dev/xenopi-vision-20261014/baseline",
+      "samples": [
+        {
+          "variant": "baseline",
+          "elapsed_ms": 3125.982326999998,
+          "text": "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12",
+          "usage": {
+            "input": 47,
+            "output": 38,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "reasoning": 0,
+            "totalTokens": 85,
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            }
+          },
+          "stop": "stop"
+        },
+        {
+          "variant": "candidate",
+          "elapsed_ms": 2984.265392000001,
+          "text": "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12",
+          "usage": {
+            "input": 47,
+            "output": 38,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "reasoning": 0,
+            "totalTokens": 85,
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            }
+          },
+          "stop": "stop"
+        },
+        {
+          "variant": "candidate",
+          "elapsed_ms": 2954.5539050000007,
+          "text": "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12",
+          "usage": {
+            "input": 47,
+            "output": 38,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "reasoning": 0,
+            "totalTokens": 85,
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            }
+          },
+          "stop": "stop"
+        },
+        {
+          "variant": "baseline",
+          "elapsed_ms": 3303.3029240000033,
+          "text": "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12",
+          "usage": {
+            "input": 47,
+            "output": 38,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "reasoning": 0,
+            "totalTokens": 85,
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            }
+          },
+          "stop": "stop"
+        },
+        {
+          "variant": "baseline",
+          "elapsed_ms": 3197.247657,
+          "text": "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12",
+          "usage": {
+            "input": 47,
+            "output": 38,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "reasoning": 0,
+            "totalTokens": 85,
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            }
+          },
+          "stop": "stop"
+        },
+        {
+          "variant": "candidate",
+          "elapsed_ms": 3080.6959859999915,
+          "text": "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12",
+          "usage": {
+            "input": 47,
+            "output": 38,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "reasoning": 0,
+            "totalTokens": 85,
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            }
+          },
+          "stop": "stop"
+        },
+        {
+          "variant": "candidate",
+          "elapsed_ms": 3075.7640009999886,
+          "text": "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12",
+          "usage": {
+            "input": 47,
+            "output": 38,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "reasoning": 0,
+            "totalTokens": 85,
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            }
+          },
+          "stop": "stop"
+        },
+        {
+          "variant": "baseline",
+          "elapsed_ms": 3361.1421459999983,
+          "text": "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12",
+          "usage": {
+            "input": 47,
+            "output": 38,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "reasoning": 0,
+            "totalTokens": 85,
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            }
+          },
+          "stop": "stop"
+        }
+      ]
+    }
+  },
+  "vision_final": {
+    "65536": {
+      "capacity": 65536,
+      "image": "/home/simo/dev/xenolith-vision-20261014/candidate/gattino.jpg",
+      "image_sha256": "3f136dfff89d27442fb82250bc847c99613ed7e1895033075f8ab4289316020f",
+      "measurements": [
+        {
+          "name": "kitten",
+          "elapsed_ms": 26585.654112,
+          "first_content_ms": 24784.873043000003,
+          "usage": {
+            "input": 845,
+            "output": 41,
+            "cacheRead": 0,
+            "totalTokens": 845
+          },
+          "text": "A kitten."
+        },
+        {
+          "name": "text_followup",
+          "elapsed_ms": 7735.146213,
+          "first_content_ms": 6819.522753999998,
+          "usage": {
+            "input": 32,
+            "output": 157,
+            "cacheRead": 845,
+            "totalTokens": 877
+          },
+          "text": "The kitten has short fur with a brown and black tabby pattern."
+        },
+        {
+          "name": "cli_attachment",
+          "elapsed_ms": 8820.984986000003,
+          "stdout": "A kitten.\n",
+          "stderr": ""
+        },
+        {
+          "name": "resumed_followup",
+          "elapsed_ms": 5616.128439000007,
+          "first_content_ms": 5222.3493610000005,
+          "usage": {
+            "input": 25,
+            "output": 64,
+            "cacheRead": 877,
+            "totalTokens": 902
+          },
+          "text": "A kitten."
+        },
+        {
+          "name": "visual_compaction",
+          "elapsed_ms": 13981.112636000005,
+          "summary": "## Goal\n- Identify the animal in the provided image.\n- Describe the animal's physical characteristics (specifically its fur).\n\n## Constraints & Preferences\n- Answers must be brief and in English.\n\n## Progress\n### Done\n- [x] Identified the animal as a kitten.\n- [x] Described the kitten's fur as short with a brown and black tabby pattern.\n\n### In Progress\n- [ ] Finalize the summary of the conversation.\n\n### Blocked\n- (none)\n\n## Key Decisions\n- **Brief response style**: The user requested brief answers, so descriptions and identifications were kept minimal and direct.\n\n## Next Steps\n1. Complete the structured context checkpoint summary.\n\n## Critical Context\n- **Subject**: A kitten.\n- **Appearance**: Short fur with a brown and black tabby pattern."
+        },
+        {
+          "name": "compacted_followup",
+          "elapsed_ms": 8959.758054000005,
+          "first_content_ms": 7449.746960000004,
+          "usage": {
+            "input": 785,
+            "output": 73,
+            "cacheRead": 0,
+            "totalTokens": 785
+          },
+          "text": "A kitten."
+        },
+        {
+          "name": "read_tool_image",
+          "elapsed_ms": 19368.768001999983,
+          "first_content_ms": 10961.813416999998,
+          "usage": {
+            "input": 1458,
+            "output": 44,
+            "cacheRead": 789,
+            "totalTokens": 1127
+          },
+          "text": "The animal in the image is a kitten."
+        }
+      ]
+    },
+    "131072": {
+      "capacity": 131072,
+      "image": "/home/simo/dev/xenolith-vision-20261014/candidate/gattino.jpg",
+      "image_sha256": "3f136dfff89d27442fb82250bc847c99613ed7e1895033075f8ab4289316020f",
+      "measurements": [
+        {
+          "name": "kitten",
+          "elapsed_ms": 29971.17212100001,
+          "first_content_ms": 27973.90755199999,
+          "usage": {
+            "input": 850,
+            "output": 88,
+            "cacheRead": 0,
+            "totalTokens": 850
+          },
+          "text": "The animal in this image is a kitten."
+        },
+        {
+          "name": "text_followup",
+          "elapsed_ms": 6778.119804999995,
+          "first_content_ms": 5493.322306999995,
+          "usage": {
+            "input": 39,
+            "output": 137,
+            "cacheRead": 850,
+            "totalTokens": 889
+          },
+          "text": "The kitten has short, tabby-patterned fur with shades of brown, grey, and black."
+        },
+        {
+          "name": "cli_attachment",
+          "elapsed_ms": 9094.82984999998,
+          "stdout": "A kitten.\n",
+          "stderr": "xenopi: requested a context capacity of 65536 tokens, but the running Xenolith service provides 131072. Using 131072 tokens. Restart Xenolith with --ctx 65536 to apply the requested capacity.\n"
+        },
+        {
+          "name": "resumed_followup",
+          "elapsed_ms": 8212.844777999999,
+          "first_content_ms": 7660.725246999995,
+          "usage": {
+            "input": 28,
+            "output": 120,
+            "cacheRead": 889,
+            "totalTokens": 917
+          },
+          "text": "You showed me a kitten."
+        },
+        {
+          "name": "visual_compaction",
+          "elapsed_ms": 13796.851735000004,
+          "summary": "## Goal\n- Identify the animal in the provided image.\n- Describe the animal's physical characteristics (specifically its fur).\n\n## Constraints & Preferences\n- Answers must be brief and in English.\n\n## Progress\n### Done\n- [x] Identified the animal as a kitten.\n- [x] Described the kitten's fur as short, tabby-patterned, with shades of brown, grey, and black.\n\n### In Progress\n- [ ] None\n\n### Blocked\n- None\n\n## Key Decisions\n- **Brief responses**: The user requested brief answers for identification and description tasks.\n\n## Next Steps\n1. Await further questions regarding the kitten or the image.\n\n## Critical Context\n- **Subject**: A small kitten.\n- **Appearance**: Short, tabby-patterned fur consisting of brown, grey, and black shades."
+        },
+        {
+          "name": "compacted_followup",
+          "elapsed_ms": 9198.675625000003,
+          "first_content_ms": 7622.745936000021,
+          "usage": {
+            "input": 792,
+            "output": 80,
+            "cacheRead": 0,
+            "totalTokens": 792
+          },
+          "text": "A kitten."
+        },
+        {
+          "name": "read_tool_image",
+          "elapsed_ms": 19785.28131900003,
+          "first_content_ms": 11267.554378,
+          "usage": {
+            "input": 1457,
+            "output": 44,
+            "cacheRead": 788,
+            "totalTokens": 1126
+          },
+          "text": "The animal in the image is a kitten."
+        }
+      ]
+    }
+  },
+  "vision_initial": {
+    "65536": {
+      "capacity": 65536,
+      "image": "/home/simo/dev/xenolith-vision-20261014/candidate/gattino.jpg",
+      "image_sha256": "3f136dfff89d27442fb82250bc847c99613ed7e1895033075f8ab4289316020f",
+      "measurements": [
+        {
+          "name": "kitten",
+          "elapsed_ms": 26613.825524999997,
+          "first_content_ms": 24933.874793,
+          "usage": {
+            "input": 843,
+            "output": 40,
+            "cacheRead": 0,
+            "totalTokens": 843
+          },
+          "text": "A kitten."
+        },
+        {
+          "name": "text_followup",
+          "elapsed_ms": 5400.762468000001,
+          "first_content_ms": 4267.234555000003,
+          "usage": {
+            "input": 36,
+            "output": 100,
+            "cacheRead": 843,
+            "totalTokens": 879
+          },
+          "text": "The kitten has tabby fur with a mixture of brown, black, and tan stripes."
+        },
+        {
+          "name": "resumed_followup",
+          "elapsed_ms": 11407.154517999996,
+          "first_content_ms": 10962.470338,
+          "usage": {
+            "input": 25,
+            "output": 74,
+            "cacheRead": 879,
+            "totalTokens": 904
+          },
+          "text": "A kitten."
+        },
+        {
+          "name": "visual_compaction",
+          "elapsed_ms": 15573.464737999995,
+          "summary": "## Goal\n- Identify the animal in the provided image.\n- Describe the animal's physical characteristics (specifically its fur).\n\n## Constraints & Preferences\n- Answers must be brief and in English.\n\n## Progress\n### Done\n- [x] Identified the animal as a kitten.\n- [x] Described the kitten's fur as tabby with brown, black, and tan stripes.\n\n### In Progress\n- [ ] Waiting for further user queries or tasks.\n\n### Blocked\n- (none)\n\n## Key Decisions\n- **Visual Identification**: Determined the animal is a kitten based on physical features and size.\n- **Description Style**: Provided a concise summary of the fur pattern as requested.\n\n## Next Steps\n1. Await user input for further identification or description tasks.\n\n## Critical Context\n- **Animal Identity**: Kitten.\n- **Appearance**: Tabby fur pattern with a mixture of brown, black, and tan stripes."
+        },
+        {
+          "name": "compacted_followup",
+          "elapsed_ms": 9415.028626999992,
+          "first_content_ms": 7758.2736009999935,
+          "usage": {
+            "input": 807,
+            "output": 81,
+            "cacheRead": 0,
+            "totalTokens": 807
+          },
+          "text": "A kitten."
+        },
+        {
+          "name": "read_tool_image",
+          "elapsed_ms": 19661.368983000008,
+          "first_content_ms": 11326.942406999995,
+          "usage": {
+            "input": 1456,
+            "output": 44,
+            "cacheRead": 787,
+            "totalTokens": 1125
+          },
+          "text": "The animal in the image is a kitten."
+        }
+      ]
+    },
+    "131072": {
+      "capacity": 131072,
+      "image": "/home/simo/dev/xenolith-vision-20261014/candidate/gattino.jpg",
+      "image_sha256": "3f136dfff89d27442fb82250bc847c99613ed7e1895033075f8ab4289316020f",
+      "measurements": [
+        {
+          "name": "kitten",
+          "elapsed_ms": 27217.226028000005,
+          "first_content_ms": 25507.772720000008,
+          "usage": {
+            "input": 844,
+            "output": 45,
+            "cacheRead": 0,
+            "totalTokens": 844
+          },
+          "text": "A kitten."
+        },
+        {
+          "name": "text_followup",
+          "elapsed_ms": 7851.451529999991,
+          "first_content_ms": 6547.9452290000045,
+          "usage": {
+            "input": 39,
+            "output": 151,
+            "cacheRead": 844,
+            "totalTokens": 883
+          },
+          "text": "The kitten has short, tabby-patterned fur with shades of grey, brown, and black."
+        },
+        {
+          "name": "resumed_followup",
+          "elapsed_ms": 7174.628078999987,
+          "first_content_ms": 6784.486216999998,
+          "usage": {
+            "input": 25,
+            "output": 82,
+            "cacheRead": 883,
+            "totalTokens": 908
+          },
+          "text": "A kitten."
+        },
+        {
+          "name": "visual_compaction",
+          "elapsed_ms": 15431.581605000014,
+          "summary": "## Goal\n- Identify the animal in the provided image.\n- Describe the animal's fur.\n\n## Constraints & Preferences\n- Answers must be brief.\n- Answers must be in English.\n\n## Progress\n### Done\n- [x] Identified the animal as a kitten.\n- [x] Described the kitten's fur as short, tabby-patterned, with shades of grey, brown, and black.\n\n### In Progress\n- [ ] Awaiting further user instructions.\n\n### Blocked\n- (none)\n\n## Key Decisions\n- **Briefness**: Kept all descriptive responses concise as per user instructions.\n\n## Next Steps\n1. Respond to any subsequent questions regarding the image or the kitten.\n\n## Critical Context\n- **Subject**: A small kitten.\n- **Appearance**: Short, tabby-patterned fur consisting of grey, brown, and black shades."
+        },
+        {
+          "name": "compacted_followup",
+          "elapsed_ms": 8088.4264729999995,
+          "first_content_ms": 6431.771011999983,
+          "usage": {
+            "input": 797,
+            "output": 57,
+            "cacheRead": 0,
+            "totalTokens": 797
+          },
+          "text": "A kitten."
+        },
+        {
+          "name": "read_tool_image",
+          "elapsed_ms": 19331.548169000016,
+          "first_content_ms": 10946.772706999996,
+          "usage": {
+            "input": 1457,
+            "output": 44,
+            "cacheRead": 788,
+            "totalTokens": 1126
+          },
+          "text": "The animal in the image is a kitten."
+        }
+      ]
+    }
+  },
+  "cold_cli_final": {
+    "returncode": 0,
+    "elapsed_seconds": 42.337711811065674,
+    "stdout": "In questa immagine c'è un gattino.\n",
+    "stderr": "xenopi: no XenoPi sessions listed, skipping the orphan sweep\n",
+    "config": {
+      "bin": "/home/simo/dev/xenolith-vision-20261014/candidate/xenolith",
+      "model": "/home/simo/.models/gemma-4-26B-A4B-it-qat-UD-Q4_K_XL.gguf",
+      "mmproj": "/home/simo/dev/xenolith-vision-20261014/reference/mmproj-F16.gguf",
+      "context": 65536,
+      "socket": "/home/simo/dev/xenopi-vision-20261014/manual/wire.sock",
+      "stateDir": "/home/simo/dev/xenopi-vision-20261014/manual/state",
+      "cacheDir": "/home/simo/dev/xenopi-vision-20261014/manual/cache",
+      "idleShutdownMinutes": 30
+    },
+    "model": "same pinned Xenolith model and projector",
+    "started_utc": "2026-10-14T18:36:19Z"
+  },
+  "cold_cli_harness_correction": "The first detached harness inherited a write-only nohup stdin and Pi failed reading it with EBADF. The successful rerun supplies an empty readable input pipe; no product change was needed.",
+  "limitations": [
+    "Four text samples per variant per capacity; timing variation is not a stable speedup claim.",
+    "Vision timings are individual samples. SDK first-image timings exclude service startup; cached CLI attachment timings reuse the image embedding cache.",
+    "Visual budgets 70..1120 are passed through supported engine capabilities; real frontend quality cases use the default 280.",
+    "Synchronous preparation cannot be interrupted on the server; cancellation stops subsequent generation."
+  ],
+  "logs": {
+    "model.log": "\n> xenopi@0.2.0 test:model\n> npm run build && node --test --test-concurrency=1 --test-timeout=3600000 \"dist/test/model/*.test.js\"\n\n\n> xenopi@0.2.0 build\n> npm run clean && tsc -p tsconfig.json\n\n\n> xenopi@0.2.0 clean\n> node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"\n\nxenopi: no XenoPi sessions listed, skipping the orphan sweep\n[service] pid 25738 stopped via SIGTERM after 2876ms exit=0 signal=null\n✔ multi-turn tool loop is append-only on the wire (20534.65396ms)\nxenopi: no XenoPi sessions listed, skipping the orphan sweep\n[service] pid 25942 stopped via SIGTERM after 485ms exit=0 signal=null\n[service] pid 26136 stopped via SIGTERM after 1514ms exit=0 signal=null\n✔ a service restart resumes the session at near-zero prefill (28337.660283ms)\nxenopi: no XenoPi sessions listed, skipping the orphan sweep\n[service] pid 26334 stopped via SIGTERM after 483ms exit=0 signal=null\n✔ branch navigation rewinds the wire record instead of rebuilding (21239.456395ms)\nxenopi: no XenoPi sessions listed, skipping the orphan sweep\n[service] pid 26529 stopped via SIGTERM after 1781ms exit=0 signal=null\n✔ compaction runs through session_before_compact at near-zero prefill (50361.191227ms)\nxenopi: no XenoPi sessions listed, skipping the orphan sweep\n[service] pid 26723 stopped via SIGTERM after 655ms exit=0 signal=null\n✖ an oversized prompt reaches Pi's bounded overflow recovery (40299.131886ms)\nxenopi: no XenoPi sessions listed, skipping the orphan sweep\n[service] pid 26923 stopped via SIGTERM after 464ms exit=0 signal=null\n✔ an MCP tool executes end to end inside the agent loop (16013.769213ms)\nxenopi: no XenoPi sessions listed, skipping the orphan sweep\n[service] pid 27126 stopped via SIGTERM after 480ms exit=0 signal=null\n✔ the orphan sweep deletes wire sessions for deleted pi sessions (17609.434405ms)\nxenopi: no XenoPi sessions listed, skipping the orphan sweep\n[service] pid 27319 stopped via SIGTERM after 1666ms exit=0 signal=null\n✔ native codemode calls MCP with the real model before and after reload (37749.372543ms)\n[service] pid 27540 stopped via SIGTERM after 666ms exit=0 signal=null\n✔ text output and latency parity against pre-vision Xenopi at 65536 (38678.065117ms)\n[service] pid 27742 stopped via SIGTERM after 631ms exit=0 signal=null\n✔ text output and latency parity against pre-vision Xenopi at 131072 (42243.994964ms)\nxenopi: no XenoPi sessions listed, skipping the orphan sweep\n[service] pid 27944 stopped via SIGTERM after 1649ms exit=0 signal=null\n[service] pid 28150 stopped via SIGTERM after 871ms exit=0 signal=null\n✔ native kitten attachment, tool image, resume and compaction at 65536 (134333.121899ms)\nxenopi: requested a context capacity of 65536 tokens, but the running Xenolith service provides 131072. Using 131072 tokens. Restart Xenolith with --ctx 65536 to apply the requested capacity.\nxenopi: no XenoPi sessions listed, skipping the orphan sweep\n[service] pid 28351 stopped via SIGTERM after 1734ms exit=0 signal=null\nxenopi: requested a context capacity of 65536 tokens, but the running Xenolith service provides 131072. Using 131072 tokens. Restart Xenolith with --ctx 65536 to apply the requested capacity.\nxenopi: requested a context capacity of 65536 tokens, but the running Xenolith service provides 131072. Using 131072 tokens. Restart Xenolith with --ctx 65536 to apply the requested capacity.\n[service] pid 28549 stopped via SIGTERM after 597ms exit=0 signal=null\n✔ native kitten attachment, tool image, resume and compaction at 131072 (135114.65264ms)\nℹ tests 12\nℹ suites 0\nℹ pass 11\nℹ fail 1\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 594353.808112\n\n✖ failing tests:\n\ntest at dist/test/model/acceptance.test.js:136:1\n✖ an oversized prompt reaches Pi's bounded overflow recovery (40299.131886ms)\n  AssertionError [ERR_ASSERTION]: expected a recognized wire context overflow\n      at file:///home/simo/dev/xenopi-vision-20261014/candidate/dist/test/model/acceptance.test.js:157:20\n      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)\n      at async withService (file:///home/simo/dev/xenopi-vision-20261014/candidate/dist/test/model/acceptance.test.js:14:26)\n      at async TestContext.<anonymous> (file:///home/simo/dev/xenopi-vision-20261014/candidate/dist/test/model/acceptance.test.js:137:5)\n      at async Test.run (node:internal/test_runner/test:1409:7)\n      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {\n    generatedMessage: false,\n    code: 'ERR_ASSERTION',\n    actual: false,\n    expected: true,\n    operator: '==',\n    diff: 'simple'\n  }\n",
+    "final-unit-179.log": "\n> xenopi@0.2.0 test\n> npm run build && node --test \"dist/test/unit/*.test.js\"\n\n\n> xenopi@0.2.0 build\n> npm run clean && tsc -p tsconfig.json\n\n\n> xenopi@0.2.0 clean\n> node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"\n\n✔ connection status distinguishes an existing service from a failed engine startup (42.634095ms)\n✔ a fresh connection failure clears preparation before any wire start event (6.520888ms)\n✔ adapter forwards raw measured telemetry and updates tool progress without changing Pi content (11.266115ms)\n✔ adapter clears activity after a rejected generation (5.558242ms)\nwire error io_error: generation failed\n✔ adapter clears activity after a wire-error generation (4.644215ms)\n✔ adapter clears activity after a cancelled generation (17.651825ms)\n✔ adapter clears activity after a disconnected generation (8.861584ms)\n✔ legacy streams retain progress forwarding and activity ids reset between generations (3.630903ms)\n✔ first call creates a wire session, appends the context and generates (17.569197ms)\n✔ second turn appends only the suffix (5.822506ms)\n✔ a tool loop appends the tool result against the wire-minted call id (8.523509ms)\n✔ divergence in the middle rewinds to the previous marker and appends (7.981023ms)\n✔ a changed system prompt rebuilds and reads the record back (6.672067ms)\n✔ divergence at the first message rebuilds (3.011395ms)\n✔ marker_unavailable falls back to a rebuild (4.47955ms)\n✔ a call without a session id runs as an ephemeral one-off (4.994305ms)\n✔ cacheRetention none is a one-off even with a session id (2.125729ms)\n✔ a restarted process reconciles the shadow from history (6.57383ms)\n✔ reconcile keeps the tool call id mapping across a restart (5.869414ms)\n✔ a missing wire session is recreated and the binding refreshed (6.114465ms)\n✔ reconcile detects a system prompt change recorded on the wire (6.878981ms)\n✔ reconcile detects a tool set change recorded on the wire (7.455874ms)\n✔ reconcile keeps the shadow when the system prompt and tools are unchanged (4.014672ms)\n✔ an ephemeral one-off sends a wire-valid system, tools and message sequence (3.771138ms)\n✔ an ephemeral request the wire would reject is reported, not silently accepted (4.56472ms)\n✔ a restart with an empty system prompt appends instead of rebuilding (4.806912ms)\n✔ a restart with no system prompt at all appends instead of rebuilding (5.849544ms)\n✔ the binding map persists atomically and reloads (16.908561ms)\n✔ listPiSessionIds finds session ids by filename and by header (5.62966ms)\n✔ the startup sweep deletes wire sessions whose pi session is gone (7.614445ms)\nxenopi: no XenoPi sessions listed, skipping the orphan sweep\n✔ an empty session listing is unknown, not empty: the sweep deletes nothing (4.6773ms)\nxenopi: no XenoPi sessions listed, skipping the orphan sweep\n✔ an overridden session dir that lists nothing does not mass-delete wire records (6.484788ms)\n✔ a sweep scoped to an overridden session dir keeps sessions listed there (3.855822ms)\n✔ the sweep keeps bindings whose pi session file still exists (3.299255ms)\n✔ brandSystemPrompt replaces pi's stock identity (0.637737ms)\n✔ brandSystemPrompt prepends the identity to a custom prompt (0.110501ms)\n✔ the branding extension installs the identity hook (0.784981ms)\n✔ the XenoPi header replaces the stock pi header in TUI mode (1.037441ms)\n✔ CLI @image attachment reaches the v2 engine as image bytes (764.439045ms)\n✔ CLI cold startup creates the socket directory and exits while its engine stays running (943.79725ms)\n✔ CLI startup reports an engine that exits without an unsettled await (198.257759ms)\n✔ CLI startup reports an engine that missing without an unsettled await (194.523068ms)\n✔ the actual CLI migrates MCP, discovers the model, and resumes native codemode sessions (1111.425883ms)\n✔ context defaults to the engine and the environment overrides the config file (3.992349ms)\n✔ context settings do not assume a model's minimum or maximum (3.585336ms)\n✔ invalid context values fail explicitly instead of using a default (4.940046ms)\n✔ cache budget accepts byte counts and decimal or binary units (0.663301ms)\n✔ cache budget environment setting overrides xenolith.json (1.200394ms)\n✔ service arguments use Xenolith's default unless a cache budget was supplied (1.4978ms)\n✔ invalid JSON cache budgets are rejected and overflow never loses precision (5.018343ms)\n✔ model registration reflects service capabilities instead of a model family (1.397795ms)\n✔ unsupported protocols and malformed capabilities fail before registration (0.445733ms)\n✔ text streaming maps onto start, text_start, text_delta, text_end and done (29.779472ms)\n✔ reasoning streams as a thinking block before visible text (9.782347ms)\n✔ reasoning levels stay semantic at the wire boundary (16.143373ms)\n✔ tool calls close the text block and carry the wire id verbatim (3.700402ms)\n✔ stop reasons map from the wire vocabulary (3.212303ms)\n✔ usage carries the wire accounting with zero cost (3.009801ms)\n✔ aborting cancels on the wire and reports the aborted error event (43.464201ms)\nxenopi: context_length_exceeded: prompt of 104 tokens against a window of 24 tokens; XenoPi's overflow recovery takes over\n✔ context_length_exceeded is composed by the adapter from the wire code and recognized by pi (5.238101ms)\n✔ every other wire error text reaches pi verbatim and is not mistaken for a retryable one (1.176138ms)\nwire error io_error: engine detached\n✔ a wire error event surfaces as a pi error event without invented wording (5.492244ms)\n✔ an ephemeral one-off streams events without touching a record (4.07333ms)\n✔ a signal already aborted before the call yields an aborted turn (2.418202ms)\n✔ the extension registers the xenolith provider with the engine facts (23.81483ms)\nxenopi: no XenoPi sessions listed, skipping the orphan sweep\nxenopi: no XenoPi sessions listed, skipping the orphan sweep\n✔ the provider displays measured progress through Pi's working message only in TUI mode (14.772687ms)\nxenopi: no XenoPi sessions listed, skipping the orphan sweep\n✔ the agent_end hook clears the progress line and ignores later stream events (35.618427ms)\nxenopi: no XenoPi sessions listed, skipping the orphan sweep\n✔ the model_select hook clears the progress line and ignores later stream events (38.766464ms)\nxenopi: no XenoPi sessions listed, skipping the orphan sweep\n✔ the session_shutdown hook clears the progress line and ignores later stream events (8.103663ms)\n✔ session_before_compact summarizes on the live wire session at zero prefill (4.651532ms)\n✔ session_before_compact degrades when the live record does not carry the compacted prefix (3.080173ms)\n✔ session_before_compact degrades when the summary turn stops on length (3.179011ms)\n✔ session_before_compact degrades when the summary turn stops on a tool call (3.674081ms)\n✔ session_before_compact degrades when there is no live wire session (1.697994ms)\n✔ a split-turn visual prefix is summarized even without messagesToSummarize or a live binding (3.055095ms)\nxenopi hook failed: prompt has many tokens\n✔ a failed summary generation leaves the shadow dirty so the next turn rebuilds (3.716537ms)\n✔ compactionPrefixKeys matches the adapter's translated keys (0.140436ms)\n✔ the compacted session rebuilds on the next provider call (3.852526ms)\n✔ session_before_tree issues a wire checkpoint (52.57106ms)\n✔ the summary prompt mirrors pi's compaction prompt shape (0.509005ms)\n✔ the summary token budget follows pi's min(0.8 * reserve, model maxTokens) (0.158353ms)\n✔ adapter checkpoint and markDirty operate on the live session only (5.938613ms)\nxenopi: checkpoint (checkpoint) not saved: io at 6 tokens\nxenopi: this session will not resume from cache (its snapshot no longer fits the engine's cache budget); the next open will prefill ~6 tokens\n✔ checkpoint reports reach the user once for permanent causes and the log for transient ones (3.550286ms)\nxenopi: the xenolith snapshot store is disabled (see the engine log); sessions will not resume from cache\n✔ a disabled snapshot store is announced once at describe and silences no_kvstore checkpoints (4.822303ms)\n✔ the agent dir defaults under the home directory and honours XENOPI_DIR (1.295503ms)\n✔ prepareLaunch seeds an isolated branded agent dir (5.0146ms)\n✔ the runtime package overlay activates pi's native XenoPi branding (2.855771ms)\n✔ the launched CLI identifies itself as xenopi (611.145578ms)\n✔ re-seeding refreshes this package's extension paths and keeps every other entry (4.105913ms)\n✔ only this package's own extension paths are recognised for replacement (0.153973ms)\n✔ seeding does not revert a user's model choice on relaunch (2.543268ms)\n✔ the packaged extension entry points exist on disk (0.130277ms)\n✔ a project-scope settings file that overrides provider wiring is flagged before boot (1.303396ms)\nxenopi: no XenoPi sessions listed, skipping the orphan sweep\n✔ native MCP stdio direct calls cross the Pi agent loop and preserve JSON schemas (255.64358ms)\nxenopi: no XenoPi sessions listed, skipping the orphan sweep\n✔ native MCP HTTP uses the bearer header and reports tool errors (117.24045ms)\nxenopi: no XenoPi sessions listed, skipping the orphan sweep\n✔ native codemode calls MCP tools and keeps their declarations out of the wire prompt (411.425495ms)\nxenopi: no XenoPi sessions listed, skipping the orphan sweep\n✔ native deferred tool search loads an MCP tool for the following turn (135.35446ms)\nxenopi: migrated MCP configuration; backup: /tmp/xenopi-migrate-Vj2Qg6/mcp.json.pre-pi-1.0.2.bak. Tools now use Pi names and codemode exposure.\n✔ legacy MCP configuration is backed up and converted once without losing native entries (3.339553ms)\n✔ MCP migration leaves ambiguous server names and malformed files untouched (3.455089ms)\n✔ connection and startup states have elapsed time and no fictitious percentage (1.510038ms)\n✔ measured prefill uses engine counts and active time rather than arrival time (0.310255ms)\n✔ decode measurement updates while tool arguments produce no text deltas (0.369682ms)\n✔ start preserves preparation time but starts the legacy prefill estimate (0.566585ms)\n✔ legacy prefill estimates speed while decode only shows state and elapsed time (0.435425ms)\n✔ zero prefill and full cache need no division by zero or guessed speed (1.090679ms)\n✔ new generations reset measurements and reject stale events and cleanup from the old id (0.300595ms)\n✔ terminal errors and explicit end clear the line exactly once (0.295652ms)\n✔ invalid or backwards counters do not corrupt the displayed rate (1.09ms)\n✔ an obsolete prefill sample cannot replace the current total (0.567194ms)\n✔ an invalid phase does not claim measured capability or suppress legacy progress (0.199725ms)\n✔ phase boundaries keep a local decode clock while rates use engine time (1.007029ms)\n✔ a partial prefill finish waits without inventing a decode (0.208731ms)\n✔ fully cached prefill can open and finish immediately before decode (0.255786ms)\n✔ invalid lifecycle states and obsolete finishes do not change the phase (0.128789ms)\n✔ terminal events close an open lifecycle without requiring finished (0.188492ms)\n✔ a cancel reply on an idle connection never desyncs the next request (59.759491ms)\n✔ an aborted turn leaves the connection usable for the next turn (82.782499ms)\n✔ an oversized append frame is refused deterministically instead of killing the socket (8.754213ms)\n✔ an oversized rebuild frame is refused deterministically (7.665975ms)\n✔ an over-cap request line is answered and dropped by the service (3.037759ms)\nxenopi: the xenolith record could not be read back, rebuilding from XenoPi's context\n✔ a history response the service cannot frame falls back to a rebuild (5.111699ms)\nxenopi: the xenolith record could not be read back, rebuilding from XenoPi's context\n✔ an unreadable record that stays unreadable surfaces a deterministic error (7.607691ms)\n✔ a rewind that would drop the anchor's tool calls rebuilds instead (7.154617ms)\n✔ the mock drops an assistant's calls when rewound to that assistant, matching conversation.c (2.402456ms)\n✔ an unmapped tool call id forces a rebuild instead of guessing a wire id (6.067746ms)\n✔ a rebuild whose readback does not match the sent context fails loudly (2.284131ms)\n✔ concurrent provider calls for one pi session do not interleave on the wire (60.857743ms)\n✔ a failing spawn reports the binary's stderr in the connect error (55.426059ms)\n✔ a spawn that cannot start at all reports the spawn failure (54.710357ms)\n✔ spawn forwards context unchanged and preserves the engine's rejection (74.301382ms)\n✔ a running service's context wins and a mismatch reaches the UI once (5.294464ms)\n✔ the adapter discovers a service model without built-in model assumptions (1.661145ms)\n✔ a transcript near the window rebuilds and reconciles in one frame each (3.7 finding 3) (51.128216ms)\nxenopi: cannot open this conversation: it contains 157 tokens, but Xenolith's context capacity is 64 tokens. Restart Xenolith with a larger --ctx. The saved conversation is unchanged.\nxenopi: context_length_exceeded: prompt of 157 tokens against a window of 64 tokens; XenoPi's overflow recovery takes over\n✔ a saved conversation rejected by a smaller engine reports counts without losing its binding (3.938698ms)\n✔ startup mounts the Xenopi TUI before discovery and restores the terminal afterwards (156.593096ms)\n✔ startup respects regular TUI mode including the CLI override (243.225713ms)\n✔ regular startup leaves a fresh line after error (121.700902ms)\n✔ regular startup leaves a fresh line after interrupt (121.365044ms)\n✔ failed discovery restores the terminal and removes startup signal handlers (1.164132ms)\n✔ Ctrl+C restores the terminal before exiting during startup (1.461621ms)\n✔ noninteractive modes never mount a startup TUI even with a terminal (0.726928ms)\n✔ startup does not render with stdin TTY=false and stdout TTY=true (0.153507ms)\n✔ startup does not render with stdin TTY=true and stdout TTY=false (0.15611ms)\n✔ Pi transcript system deltas resolve into one wire prompt and current tools (1.591711ms)\n✔ changed transcript tools rebuild once and unchanged turns keep the cached prefix (18.920238ms)\n✔ translation does not silently discard malformed image input (0.558167ms)\n✔ async payload replacements are translated before synchronizing the wire session (3.914665ms)\n✔ a service capability change on reconnect fails before reusing a session (6.938322ms)\n✔ tool start exposes its identity before arguments arrive and end updates the same index (2.513633ms)\n✔ stop discards unfinished calls while preserving text and completed calls (0.710022ms)\n✔ tool_use discards unfinished calls while preserving text and completed calls (0.295277ms)\n✔ length discards unfinished calls while preserving text and completed calls (0.226792ms)\n✔ aborted discards unfinished calls while preserving text and completed calls (0.198564ms)\n✔ error discards unfinished calls while preserving text and completed calls (0.21553ms)\n✔ Pi never executes a wire call missing its end event on stop (12.469429ms)\n✔ Pi never executes a wire call missing its end event on tool_use (3.12457ms)\n✔ vision settings use the existing projector only when spawning (3.000545ms)\n✔ v2 discovers vision without advertising image support on v1 (1.553321ms)\n✔ wire image keys bind original bytes and budget, and match history references (1.740466ms)\n✔ invalid image data, MIME types and multiple images fail explicitly (1.144196ms)\n✔ v1 refuses an image before creating or changing a wire conversation (12.585486ms)\n✔ image turns append once and reconcile after restart without duplicating images (13.049501ms)\n✔ rebuild and fork preserve images; existing media references stay conversation-scoped (8.645364ms)\n✔ changing image bytes invalidates the old visual prefix (3.077907ms)\n✔ the configured budget is validated against the service and participates in restart keys (9.382481ms)\n✔ ephemeral summaries and tool-result images are forwarded (4.017575ms)\n✔ image preparation has an honest waiting phase and cancellation never launches generation (3.142507ms)\n✔ failed image preparation is not retried as an expensive rebuild (1.501936ms)\nxenopi: resuming 00000000000000000000000000000001 without a current snapshot (none); up to 10 tokens of prefill ahead\n✔ an unknown image append outcome is reconciled after disconnect, never blindly appended again (2.552648ms)\n✔ inline and context media limits fail before mutating the conversation (2.391752ms)\n✔ media retrieval checks chunk offsets, total size and SHA-256 (2.646157ms)\n✔ media chunks advance by decoded byte count and never trust Base64 character length (3.603593ms)\n✔ the context media limit counts each visual occurrence, including repeated bytes (4.077178ms)\n✔ a too-large image frame never reaches append and never triggers a retry (4.065853ms)\nxenopi: no XenoPi sessions listed, skipping the orphan sweep\n✔ native Pi attachments are persisted as inline bytes and visual compaction sees them (66.495949ms)\nxenopi: no XenoPi sessions listed, skipping the orphan sweep\n✔ native Pi read returns image content through the standard tool loop (79.649925ms)\nxenopi: no XenoPi sessions listed, skipping the orphan sweep\n✔ a failed visual compaction cancels without falling back to image placeholders (32.516121ms)\nxenopi: no XenoPi sessions listed, skipping the orphan sweep\n✔ native branch summaries receive the abandoned branch's actual images (43.741337ms)\n✔ cancelling during visual history reconciliation prevents a rewind and generation (3.211303ms)\nℹ tests 179\nℹ suites 0\nℹ pass 179\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 3350.305201\n",
+    "final-overflow.log": "xenopi: no XenoPi sessions listed, skipping the orphan sweep\nxenopi: context_length_exceeded: prompt of 70213 tokens against a window of 65536 tokens; XenoPi's overflow recovery takes over\nxenopi: context_length_exceeded: prompt of 69847 tokens against a window of 65536 tokens; XenoPi's overflow recovery takes over\n[service] pid 29127 stopped via SIGTERM after 788ms exit=0 signal=null\n✔ an oversized prompt reaches Pi's bounded overflow recovery (42565.186479ms)\nℹ tests 1\nℹ suites 0\nℹ pass 1\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 44894.925028\n",
+    "final-vision.log": "xenopi: no XenoPi sessions listed, skipping the orphan sweep\n[service] pid 29338 stopped via SIGTERM after 538ms exit=0 signal=null\n[service] pid 29560 stopped via SIGTERM after 517ms exit=0 signal=null\n✔ native kitten attachment, tool image, resume and compaction at 65536 (133345.901679ms)\nxenopi: no XenoPi sessions listed, skipping the orphan sweep\n[service] pid 29756 stopped via SIGTERM after 2861ms exit=0 signal=null\n[service] pid 29970 stopped via SIGTERM after 570ms exit=0 signal=null\n✔ native kitten attachment, tool image, resume and compaction at 131072 (134165.823328ms)\nℹ tests 2\nℹ suites 0\nℹ pass 2\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 272324.052761\n"
+  }
+}
