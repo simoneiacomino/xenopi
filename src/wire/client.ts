@@ -3,6 +3,7 @@ import { mkdirSync } from "node:fs";
 import { connect, type Socket } from "node:net";
 import { dirname } from "node:path";
 import { validateContextCapacity, type XenolithSettings } from "../config.js";
+import { DiscoveryUnavailableError, inspectService } from "./discovery.js";
 import type { ConnectionPhase } from "../activity.js";
 import {
   isWireEvent,
@@ -234,20 +235,19 @@ export interface SpawnDiagnostics {
 }
 
 export function xenolithServiceArgs(settings: XenolithSettings): string[] {
-  if (!settings.model) {
+  if (!settings.model && !settings.nativeService) {
     throw new WireError(
       "invalid_request",
-      'no xenolith model configured: set XENOLITH_MODEL or "model" in xenolith.json',
+      'no Xenolith model configured: run xenolith config init --model /path/to/model.gguf, or set a legacy XENOLITH_MODEL',
     );
   }
-  const args = [
-    "serve",
-    settings.model,
-    "--socket",
-    settings.socket,
-    "--idle-shutdown",
-    String(settings.idleShutdownMinutes),
-  ];
+  const args = ["serve"];
+  if (settings.model) args.push(settings.model);
+  if (settings.nativeService) args.push("--config", settings.nativeService.configPath);
+  args.push("--socket", settings.socket);
+  if (!settings.nativeService || settings.discovery?.idleShutdownExplicit !== false) {
+    args.push("--idle-shutdown", String(settings.idleShutdownMinutes));
+  }
   if (settings.mmproj) args.push("--mmproj", settings.mmproj);
   if (settings.context !== undefined) args.push("--ctx", String(validateContextCapacity(settings.context)));
   if (settings.stateDir) args.push("--state", settings.stateDir);
@@ -264,6 +264,7 @@ export function spawnService(settings: XenolithSettings): SpawnDiagnostics {
   const child = spawn(settings.bin, args, {
     detached: true,
     stdio: ["ignore", "ignore", "pipe"],
+    env: settings.discovery?.env,
   });
   child.on("error", (error: Error) => {
     diagnostics.spawnError = error.message;
@@ -288,12 +289,30 @@ export function spawnService(settings: XenolithSettings): SpawnDiagnostics {
 }
 
 export async function openConnection(options: ConnectOptions): Promise<WireConnection> {
-  const { settings } = options;
+  let settings = options.settings;
   const attempts = options.attempts ?? 40;
   const baseDelayMs = options.baseDelayMs ?? 100;
   let diagnostics: SpawnDiagnostics | undefined;
   let lastError: Error = new WireError("io_error", "wire service unreachable");
+  let inspected = false;
+  let unavailableDiscovery: DiscoveryUnavailableError | undefined;
+  const discover = async (): Promise<void> => {
+    if (!settings.discovery || inspected) return;
+    inspected = true;
+    try {
+      settings = await inspectService(settings);
+    } catch (error) {
+      // An older or missing engine may still have a live conventional service.
+      // An explicitly selected config must never be silently ignored.
+      if (error instanceof DiscoveryUnavailableError && !settings.discovery?.configPath) {
+        unavailableDiscovery = error;
+      } else throw error;
+    }
+  };
   options.onStatus?.("connecting");
+  // A known endpoint remains usable without a local executable or config file.
+  // Otherwise resolve it before connecting: the shared config may change it.
+  if (settings.discovery && !settings.discovery.socketExplicit) await discover();
   for (let attempt = 0; attempt < attempts; attempt++) {
     try {
       const connection = new WireConnection(await connectOnce(settings.socket));
@@ -301,11 +320,14 @@ export async function openConnection(options: ConnectOptions): Promise<WireConne
       return connection;
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
-      if (!settings.spawn) break;
+      const code = (error as NodeJS.ErrnoException).code;
+      if (!settings.spawn || code !== "ENOENT" && code !== "ECONNREFUSED") break;
       // Retry the socket once after exit: another concurrent launcher may
       // have won the engine lock and started a reachable service.
       if (diagnostics?.spawnError || diagnostics?.exited) break;
       if (!diagnostics) {
+        await discover();
+        if (unavailableDiscovery && !settings.model) throw unavailableDiscovery;
         options.onStatus?.("starting");
         diagnostics = spawnService(settings);
       }

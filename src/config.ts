@@ -2,6 +2,22 @@ import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
+/** Resolution inputs retained until a connection is actually requested. */
+export interface NativeConfigDiscovery {
+  configPath?: string;
+  socketExplicit: boolean;
+  idleShutdownExplicit: boolean;
+  env: NodeJS.ProcessEnv;
+}
+
+/** Operational paths returned by Xenolith, never parsed from its config file. */
+export interface NativeServiceConfig {
+  configPath: string;
+  configPresent: boolean;
+  engineLock: string;
+  logPath: string;
+}
+
 export interface XenolithSettings {
   bin: string;
   model: string | undefined;
@@ -17,6 +33,8 @@ export interface XenolithSettings {
   context?: number;
   idleShutdownMinutes: number;
   spawn: boolean;
+  discovery?: NativeConfigDiscovery;
+  nativeService?: NativeServiceConfig;
 }
 
 export interface XenolithSettingsFile {
@@ -31,6 +49,8 @@ export interface XenolithSettingsFile {
   context?: number;
   idleShutdownMinutes?: number;
   spawn?: boolean;
+  /** Optional native Xenolith config; inference settings remain engine-owned. */
+  config?: string;
 }
 
 export const SETTINGS_FILE_NAME = "xenolith.json";
@@ -119,6 +139,11 @@ export function resolveXenolithSettings(
   const idleEnv = env["XENOLITH_IDLE_SHUTDOWN"];
   const cacheBudget = env["XENOLITH_CACHE_BUDGET"] ?? file.cacheBudget;
   const idleParsed = idleEnv !== undefined ? Number(idleEnv) : Number.NaN;
+  const configPath = env["XENOLITH_CONFIG"] ?? file.config;
+  if (configPath !== undefined &&
+      (typeof configPath !== "string" || !configPath.startsWith("/") || configPath.includes("\0"))) {
+    throw new Error("XENOLITH_CONFIG / config must be an absolute path");
+  }
   const contextEnv = env["XENOLITH_CONTEXT"];
   const imageBudgetEnv = env["XENOLITH_IMAGE_BUDGET"];
   const imageBudget = imageBudgetEnv === undefined ? file.imageBudget :
@@ -138,6 +163,12 @@ export function resolveXenolithSettings(
     context,
     idleShutdownMinutes: Number.isFinite(idleParsed) ? idleParsed : (file.idleShutdownMinutes ?? 30),
     spawn: env["XENOLITH_NO_SPAWN"] === "1" ? false : (file.spawn ?? true),
+    discovery: {
+      configPath,
+      socketExplicit: Boolean(socketEnv && socketEnv.length > 0) || file.socket !== undefined,
+      idleShutdownExplicit: Number.isFinite(idleParsed) || file.idleShutdownMinutes !== undefined,
+      env: { ...env },
+    },
   };
 }
 

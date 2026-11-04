@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -109,6 +109,29 @@ test("the launched CLI identifies itself as xenopi", () => {
     rmSync(home, { recursive: true, force: true });
   }
 });
+
+for (const flag of ["--help", "-h", "--version", "-v"]) {
+  test(`CLI ${flag} never invokes the engine, including provider extension loading`, () => {
+    const home = tempHome();
+    try {
+      const marker = join(home, "unexpected-engine-call");
+      const engine = join(home, "fake-engine");
+      writeFileSync(engine, '#!/bin/sh\nprintf called > "$ENGINE_CALL_MARKER"\nexit 42\n');
+      chmodSync(engine, 0o755);
+      const result = spawnSync(process.execPath, [join(packageRoot(), "dist/src/bin/xenopi.js"), flag], {
+        encoding: "utf8", timeout: 10000,
+        env: { ...process.env, HOME: home, XENOPI_DIR: join(home, ".xenopi/agent"),
+          XENOLITH_BIN: engine, XENOLITH_CONFIG: join(home, "native-config.json"), ENGINE_CALL_MARKER: marker },
+      });
+      assert.equal(result.error, undefined, result.error?.message ?? "failed to launch metadata command");
+      assert.equal(result.status, 0, result.stderr);
+      assert.ok(result.stdout.trim());
+      assert.equal(existsSync(marker), false, "metadata command must not inspect, connect or start an engine");
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+}
 
 test("re-seeding refreshes this package's extension paths and keeps every other entry", () => {
   const home = tempHome();

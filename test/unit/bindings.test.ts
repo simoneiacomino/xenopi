@@ -26,7 +26,7 @@ test("the binding map persists atomically and reloads", async (t) => {
 test("listPiSessionIds finds session ids by filename and by header", async (t) => {
   const h = await harness();
   t.after(() => h.dispose());
-  const projectDir = join(h.agentDir, "sessions", "--home-simo-project--");
+  const projectDir = join(h.agentDir, "sessions", "--home-user-project--");
   mkdirSync(projectDir, { recursive: true });
   writeFileSync(
     join(projectDir, `2026-08-20T10-00-00-000Z_${SESSION_A}.jsonl`),
@@ -44,7 +44,7 @@ test("listPiSessionIds finds session ids by filename and by header", async (t) =
 });
 
 function writeSessionFile(agentDir: string, sessionId: string): void {
-  const projectDir = join(agentDir, "sessions", "--home-simo-project--");
+  const projectDir = join(agentDir, "sessions", "--home-user-project--");
   mkdirSync(projectDir, { recursive: true });
   writeFileSync(
     join(projectDir, `2026-08-20T10-00-00-000Z_${sessionId}.jsonl`),
@@ -146,7 +146,7 @@ test("the sweep keeps bindings whose pi session file still exists", async (t) =>
 
   await collect(h.adapter, context([user("one")]), { sessionId: SESSION_A });
   const kept = h.adapter.bindingStore.get(SESSION_A);
-  const projectDir = join(h.agentDir, "sessions", "--home-simo-project--");
+  const projectDir = join(h.agentDir, "sessions", "--home-user-project--");
   mkdirSync(projectDir, { recursive: true });
   writeFileSync(
     join(projectDir, `2026-08-20T10-00-00-000Z_${SESSION_A}.jsonl`),

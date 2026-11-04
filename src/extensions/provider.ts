@@ -1,6 +1,6 @@
 import type { Api, Model, TranscriptContext, Message, SimpleStreamOptions } from "@earendil-works/pi-ai";
 import type { AssistantMessageEventStream } from "@earendil-works/pi-ai";
-import { convertToLlm, prepareBranchEntries, type ExtensionAPI, type ProviderModelConfig } from "@earendil-works/pi-coding-agent";
+import { convertToLlm, parseArgs, prepareBranchEntries, type ExtensionAPI, type ProviderModelConfig } from "@earendil-works/pi-coding-agent";
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import { XenolithAdapter } from "../adapter/adapter.js";
 import { translateContext } from "../adapter/translate.js";
@@ -143,6 +143,10 @@ export function activeAdapters(): XenolithAdapter[] {
 }
 
 export default async function xenolithProvider(pi: ExtensionAPI): Promise<void> {
+  // Pi loads extensions before printing help. The launcher's metadata fast path
+  // alone therefore cannot prevent engine discovery/startup here.
+  const metadata = parseArgs(process.argv.slice(2));
+  if (metadata.help || metadata.version) return;
   const adapter = createAdapter();
   const info = await adapter.describe();
   let display: InferenceDisplay | undefined;

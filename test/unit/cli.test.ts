@@ -12,6 +12,23 @@ import { png, vision } from "./vision-fixture.js";
 
 const execFileAsync = promisify(execFile);
 
+for (const args of [["--print", "--", "--help"], ["--system-prompt", "--help", "--print", "hello"]]) {
+  test(`literal help text still reaches ordinary provider startup: ${args.join(" ")}`, { timeout: 15000 }, async (t) => {
+    const root = mkdtempSync(join(tmpdir(), "xenopi-cli-help-text-"));
+    const mock = await MockWireServer.start();
+    t.after(async () => { await mock.stop(); rmSync(mock.directory, { recursive: true, force: true }); rmSync(root, { recursive: true, force: true }); });
+    mock.turns.push({ text: "ordinary-provider-response" });
+    const run = execFileAsync(process.execPath, [join(packageRoot(), "dist/src/bin/xenopi.js"),
+      "--thinking", "off", "--no-tools", ...args], {
+      cwd: root, env: { ...process.env, XENOPI_DIR: root, XENOLITH_SOCKET: mock.socketPath, XENOLITH_NO_SPAWN: "1" }, timeout: 10000,
+    });
+    run.child.stdin?.end();
+    const result = await run;
+    assert.match(result.stdout, /ordinary-provider-response/);
+    assert.ok(mock.ops.some((op) => op.op === "append"));
+  });
+}
+
 test("CLI @image attachment reaches the v2 engine as image bytes", { timeout: 15000 }, async (t) => {
   const root = mkdtempSync(join(tmpdir(), "xenopi-cli-vision-"));
   const mock = await MockWireServer.start({ vision });
@@ -42,6 +59,10 @@ test("CLI cold startup creates the socket directory and exits while its engine s
   writeFileSync(bin, `#!${process.execPath}
 import { writeFileSync, rmSync } from "node:fs";
 import { MockWireServer } from ${JSON.stringify(mockUrl)};
+if (process.argv[2] === "config") {
+  process.stderr.write("Usage: xenolith <command> <model.gguf> [options]\\n  serve    [options]\\n");
+  process.exit(1);
+}
 writeFileSync(${JSON.stringify(pidFile)}, String(process.pid));
 await new Promise(resolve => setTimeout(resolve, 200));
 const mock = await MockWireServer.start({socketPath: process.argv[process.argv.indexOf("--socket") + 1], contextWindow: 65536, maxOutput: 4096});
@@ -68,7 +89,7 @@ for (const failure of ["exits", "missing"] as const) {
     const bin = join(root, "fake-xenolith");
     const socket = join(root, "new-runtime", "xenolith", "wire.sock");
     if (failure === "exits") {
-      writeFileSync(bin, '#!/bin/sh\necho "fixture: engine initialization failed" >&2\nexit 1\n');
+      writeFileSync(bin, '#!/bin/sh\nif [ "$1" = config ]; then echo "Usage: xenolith <command> <model.gguf> [options]" >&2; exit 1; fi\necho "fixture: engine initialization failed" >&2\nexit 1\n');
       chmodSync(bin, 0o755);
     }
     await assert.rejects(() => execFileAsync(process.execPath, [join(packageRoot(), "dist/src/bin/xenopi.js"), "-p", "hello"], {

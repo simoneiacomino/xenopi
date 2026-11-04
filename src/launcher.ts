@@ -181,7 +181,14 @@ export function projectOverrideWarning(cwd: string): string | undefined {
 
 export async function launch(argv: string[] = process.argv.slice(2)): Promise<void> {
   const plan = prepareLaunch();
-  const informational = argv.some((arg) => ["--help", "-h", "--version", "-v"].includes(arg)) ||
+  // Set branding before importing Pi: its module config is evaluated once.
+  process.env[PI_AGENT_DIR_ENV] = plan.agentDir;
+  process.env[XENOPI_AGENT_DIR_ENV] = plan.agentDir;
+  process.env[PACKAGE_DIR_ENV] = plan.brandingPackageDir;
+  process.env["PI_SKIP_VERSION_CHECK"] = "1";
+  const { parseArgs } = await import("@earendil-works/pi-coding-agent");
+  const parsed = parseArgs(argv);
+  const informational = parsed.help || parsed.version ||
     ["mcp", "config", "install", "remove", "update", "list"].includes(argv[0] ?? "");
   if (!informational) {
     const settings = readSettings(plan.settingsPath);
@@ -195,10 +202,6 @@ export async function launch(argv: string[] = process.argv.slice(2)): Promise<vo
   }
   const warning = projectOverrideWarning(process.cwd());
   if (warning) process.stderr.write(`${warning}\n`);
-  process.env[PI_AGENT_DIR_ENV] = plan.agentDir;
-  process.env[XENOPI_AGENT_DIR_ENV] = plan.agentDir;
-  process.env[PACKAGE_DIR_ENV] = plan.brandingPackageDir;
-  process.env["PI_SKIP_VERSION_CHECK"] = "1";
   process.argv = [process.argv[0] ?? "node", plan.cliPath, ...argv];
   await import(`file://${plan.cliPath}`);
 }
