@@ -3,3 +3,9 @@
 /test-logs/
 /.xenopi/
 *.tsbuildinfo
+/validation/
+/VISION.md
+
+# Python packaging helper caches
+__pycache__/
+*.pyc

@@ -1,13 +1,17 @@
 {
   "name": "xenopi",
-  "version": "0.2.0",
+  "version": "0.1.0-rc.1",
   "description": "XenoPi local coding agent on the Xenolith wire service",
   "piConfig": {
     "name": "xenopi",
     "configDir": ".xenopi"
   },
+  "xenolith": {
+    "nativeConfig": 1
+  },
   "type": "module",
   "license": "MIT",
+  "bundleDependencies": true,
   "engines": {
     "node": ">=26"
   },
@@ -38,6 +42,7 @@
     "prepack": "npm run build",
     "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
     "test": "npm run build && node --test \"dist/test/unit/*.test.js\"",
+    "test:install": "node test/install/smoke.mjs",
     "test:model": "npm run build && node --test --test-concurrency=1 --test-timeout=3600000 \"dist/test/model/*.test.js\""
   },
   "dependencies": {
