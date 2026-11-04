@@ -1,0 +1,160 @@
+# Build and optionally publish a XenoPi release from a manual dispatch.
+name: XenoPi release
+on:
+  workflow_dispatch:
+    inputs:
+      package_version:
+        description: Version for the XenoPi package and release tag
+        required: true
+        type: string
+      publish:
+        description: Promote a previously built and explicitly approved candidate
+        required: true
+        default: false
+        type: boolean
+      candidate_run_id:
+        description: Successful build workflow run ID containing the candidate artifact (required when publishing)
+        required: false
+        type: string
+      approved_archive_sha256:
+        description: Explicitly reviewed SHA-256 of the candidate archive (required when publishing)
+        required: false
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: xenopi-release-${{ inputs.package_version }}
+  cancel-in-progress: false
+jobs:
+  build-linux-gnu:
+    name: Build standalone Linux package
+    if: ${{ !inputs.publish }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    env:
+      XENOPI_REPO_ROOT: ${{ github.workspace }}
+      PACKAGE_VERSION: "${{ inputs.package_version }}"
+      STABLE_GIT_COMMIT: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f
+        with:
+          node-version: '26.10.0'
+      - name: Install locked build dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Validate Node release and build standalone package
+        env:
+          NODE_VERSION: '26.10.0'
+        run: |
+          set -euo pipefail
+          node_archive="node-v${NODE_VERSION}-linux-x64.tar.xz"
+          cd "${RUNNER_TEMP}"
+          curl --fail --location --proto '=https' --tlsv1.2 -O "https://nodejs.org/dist/v${NODE_VERSION}/${node_archive}"
+          curl --fail --location --proto '=https' --tlsv1.2 -O "https://nodejs.org/dist/v${NODE_VERSION}/SHASUMS256.txt"
+          grep "  ${node_archive}$" SHASUMS256.txt > node-SHA256SUMS
+          test "$(wc -l < node-SHA256SUMS)" -eq 1
+          sha256sum --check node-SHA256SUMS
+          tar -xf "${node_archive}"
+          cd "${GITHUB_WORKSPACE}"
+          python3 scripts/build_linux_package.py --node-dir "${RUNNER_TEMP}/node-v${NODE_VERSION}-linux-x64" --package-version "${PACKAGE_VERSION}" --output "${RUNNER_TEMP}/xenopi-release"
+          python3 scripts/smoke_linux_package.py "${RUNNER_TEMP}/xenopi-release/xenopi-${PACKAGE_VERSION}-linux-x86_64.tar.gz"
+      - name: Upload release review artifact
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: xenopi-release-x86_64-unknown-linux-gnu
+          path: |
+            ${{ runner.temp }}/xenopi-release/xenopi-*-linux-x86_64.tar.gz
+            ${{ runner.temp }}/xenopi-release/SHA256SUMS
+            ${{ runner.temp }}/xenopi-release/xenopi-release-provenance.json
+          if-no-files-found: error
+
+  publish:
+    name: Publish GitHub release
+    if: ${{ inputs.publish && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/')) }}
+    environment: release
+    timeout-minutes: 15
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      contents: write
+    env:
+      PACKAGE_VERSION: "${{ inputs.package_version }}"
+      CANDIDATE_RUN_ID: ${{ inputs.candidate_run_id }}
+      APPROVED_ARCHIVE_SHA256: ${{ inputs.approved_archive_sha256 }}
+      EXPECTED_REPOSITORY: ${{ github.repository }}
+      EXPECTED_SHA: ${{ github.sha }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Validate promotion inputs
+        run: |
+          python3 .github/scripts/verify_xenopi_candidate.py validate-inputs \
+            --package-version "${PACKAGE_VERSION}" \
+            --candidate-run-id "${CANDIDATE_RUN_ID}" \
+            --approved-archive-sha256 "${APPROVED_ARCHIVE_SHA256}"
+      - name: Read candidate workflow run metadata
+        env:
+          RUN_METADATA_PATH: ${{ runner.temp }}/xenopi-candidate-run.json
+        run: |
+          set -euo pipefail
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${CANDIDATE_RUN_ID}" > "${RUN_METADATA_PATH}"
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: xenopi-release-x86_64-unknown-linux-gnu
+          path: dist-release
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.candidate_run_id }}
+          github-token: ${{ github.token }}
+      - name: Verify candidate run, provenance, archive and approved digest
+        env:
+          RUN_METADATA_PATH: ${{ runner.temp }}/xenopi-candidate-run.json
+          PROVENANCE_PATH: ${{ github.workspace }}/dist-release/xenopi-release-provenance.json
+          ARCHIVE_PATH: ${{ github.workspace }}/dist-release/xenopi-${{ inputs.package_version }}-linux-x86_64.tar.gz
+          CHECKSUMS_PATH: ${{ github.workspace }}/dist-release/SHA256SUMS
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/verify_xenopi_candidate.py verify-candidate \
+            --run-metadata "${RUN_METADATA_PATH}" \
+            --provenance "${PROVENANCE_PATH}" \
+            --archive "${ARCHIVE_PATH}" \
+            --checksums "${CHECKSUMS_PATH}" \
+            --expected-repository "${EXPECTED_REPOSITORY}" \
+            --expected-sha "${EXPECTED_SHA}" \
+            --expected-run-id "${CANDIDATE_RUN_ID}" \
+            --package-version "${PACKAGE_VERSION}" \
+            --approved-archive-sha256 "${APPROVED_ARCHIVE_SHA256}"
+      - name: Reject an existing release tag
+        run: |
+          set -euo pipefail
+          tag="v${PACKAGE_VERSION}"
+          refs="$(gh api "repos/${GITHUB_REPOSITORY}/git/matching-refs/tags/${tag}")"
+          if [[ "$(jq --arg ref "refs/tags/${tag}" 'any(.[]; .ref == $ref)' <<<"${refs}")" == true ]]; then
+            echo "Tag ${tag} already exists; refusing to publish over it" >&2
+            exit 1
+          fi
+      - name: Create draft, attach the candidate files, then publish
+        run: |
+          set -euo pipefail
+          tag="v${PACKAGE_VERSION}"
+          # Drafts permit attaching assets when immutable releases are enabled.
+          # Any failed upload leaves an unpublished draft for investigation.
+          release_flags=(--latest=false)
+          version_core="${PACKAGE_VERSION%%+*}"
+          if [[ "${version_core}" == *-* ]]; then
+            release_flags+=(--prerelease)
+          fi
+          gh release create "${tag}" --draft \
+            --target "${GITHUB_SHA}" --repo "${GITHUB_REPOSITORY}" \
+            --title "${tag}" --notes "xenopi ${PACKAGE_VERSION} for x86_64 Linux GNU." \
+            "${release_flags[@]}"
+          gh release upload "${tag}" \
+            "${GITHUB_WORKSPACE}/dist-release/xenopi-${PACKAGE_VERSION}-linux-x86_64.tar.gz" \
+            "${GITHUB_WORKSPACE}/dist-release/SHA256SUMS" \
+            "${GITHUB_WORKSPACE}/dist-release/xenopi-release-provenance.json" \
+            --repo "${GITHUB_REPOSITORY}"
+          gh release edit "${tag}" --draft=false --latest=false --repo "${GITHUB_REPOSITORY}"
