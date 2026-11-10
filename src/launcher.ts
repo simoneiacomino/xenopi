@@ -94,10 +94,13 @@ export function seedBrandingPackage(
   ensureDirectoryLink(join(piPackageRoot, "dist"), join(destination, "dist"));
   ensureDirectoryLink(join(piPackageRoot, "docs"), join(destination, "docs"));
   ensureDirectoryLink(join(piPackageRoot, "examples"), join(destination, "examples"));
-  for (const file of ["README.md", "CHANGELOG.md"]) {
-    const source = join(piPackageRoot, file);
-    if (existsSync(source)) copyFileSync(source, join(destination, file));
-  }
+  const readme = join(piPackageRoot, "README.md");
+  if (existsSync(readme)) copyFileSync(readme, join(destination, "README.md"));
+  // Pi compares this changelog against the overlay's XenoPi version. Mixing
+  // Pi releases with XenoPi's version causes the same notes at every launch.
+  const changelog = join(packageRoot(), "CHANGELOG.md");
+  if (existsSync(changelog)) copyFileSync(changelog, join(destination, "CHANGELOG.md"));
+  else writeAtomic(join(destination, "CHANGELOG.md"), "# Changelog\n");
   return destination;
 }
 

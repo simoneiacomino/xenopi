@@ -78,6 +78,12 @@ test("the runtime package overlay activates pi's native XenoPi branding", () => 
     assert.deepEqual(manifest["piConfig"], { name: "xenopi", configDir: ".xenopi" });
     assert.equal(existsSync(join(overlay, "dist", "modes", "interactive", "theme", "dark.json")), true);
     assert.equal(existsSync(join(overlay, "docs")), true);
+    // Replace a stale Pi changelog created by a previous XenoPi release.
+    writeFileSync(join(overlay,"CHANGELOG.md"),"## [1.0.2]\nPi release\n");
+    seedBrandingPackage(agentDir, resolvePiPackageRoot());
+    const own = join(packageRoot(),"CHANGELOG.md");
+    assert.equal(readFileSync(join(overlay,"CHANGELOG.md"),"utf8"),
+                 existsSync(own) ? readFileSync(own,"utf8") : "# Changelog\n");
   } finally {
     rmSync(home, { recursive: true, force: true });
   }
